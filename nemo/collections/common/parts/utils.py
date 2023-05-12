@@ -28,10 +28,7 @@ def if_exist(outfold: str, files: List[str]):
     """
     if not os.path.exists(outfold):
         return False
-    for file in files:
-        if not os.path.exists(f'{outfold}/{file}'):
-            return False
-    return True
+    return all(os.path.exists(f'{outfold}/{file}') for file in files)
 
 
 def _compute_softmax(scores):
@@ -51,7 +48,4 @@ def _compute_softmax(scores):
         exp_scores.append(x)
         total_sum += x
 
-    probs = []
-    for score in exp_scores:
-        probs.append(score / total_sum)
-    return probs
+    return [score / total_sum for score in exp_scores]

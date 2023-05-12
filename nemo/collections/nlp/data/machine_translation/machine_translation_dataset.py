@@ -98,7 +98,7 @@ class TranslationDataset(Dataset):
         self.prepend_id = prepend_id
 
         # deprecation warnings for cache_ids, use_cache, and cache_data_per_node
-        if self.cache_ids is True or self.use_cache is True or self.cache_data_per_node is True:
+        if self.cache_ids or self.use_cache or self.cache_data_per_node:
             logging.warning(
                 'Deprecation warning. self.cache_ids, self.use_cache, and self.cache_data_per_node will be removed. Data caching to be done with tarred datasets moving forward.'
             )
@@ -157,8 +157,8 @@ class TranslationDataset(Dataset):
 
         batches = {}
         for batch_idx, b in enumerate(batch_indices):
-            src_len = max([len(src_ids[i]) for i in b])
-            tgt_len = max([len(tgt_ids[i]) for i in b])
+            src_len = max(len(src_ids[i]) for i in b)
+            tgt_len = max(len(tgt_ids[i]) for i in b)
             src_ids_ = self.src_pad_id * np.ones((len(b), src_len), dtype=np.int)
             tgt_ids_ = self.tgt_pad_id * np.ones((len(b), tgt_len), dtype=np.int)
             for i, sentence_idx in enumerate(b):
@@ -236,15 +236,15 @@ class TranslationDataset(Dataset):
 
                     num_batches += 1
                     if batch_size > 0:
-                        src_len = max([len(src_ids[j]) for j in batches[num_batches]])
-                        tgt_len = max([len(tgt_ids[j]) for j in batches[num_batches]])
+                        src_len = max(len(src_ids[j]) for j in batches[num_batches])
+                        tgt_len = max(len(tgt_ids[j]) for j in batches[num_batches])
                     else:
                         src_len = 0
                         tgt_len = 0
                     break
 
             if not buckets[indices[i]]:
-                i = i + 1
+                i += 1
 
         if not batches[-1]:
             batches.pop(-1)

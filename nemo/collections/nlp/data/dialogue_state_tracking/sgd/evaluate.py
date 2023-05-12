@@ -80,8 +80,7 @@ def get_in_domain_services(schema_path: str, service_set: set) -> set:
     Returns: 
         joint_services: joint services between schema path file and service set
     """
-    joint_services = get_service_set(schema_path) & service_set
-    return joint_services
+    return get_service_set(schema_path) & service_set
 
 
 def get_dataset_as_dict(file_path_patterns) -> dict:
@@ -106,7 +105,7 @@ def get_dataset_as_dict(file_path_patterns) -> dict:
                 for dial in data:
                     dataset_dict[dial["dialogue_id"]] = dial
             elif isinstance(data, dict):
-                dataset_dict.update(data)
+                dataset_dict |= data
             f.close()
     return dataset_dict
 
@@ -153,15 +152,14 @@ def get_metrics(
 
         if set(dial_ref["services"]) != set(dial_hyp["services"]):
             raise ValueError(
-                "Set of services present in ground truth and predictions don't match "
-                "for dialogue with id {}".format(dial_id)
+                f"Set of services present in ground truth and predictions don't match for dialogue with id {dial_id}"
             )
 
         joint_metrics = [JOINT_GOAL_ACCURACY, JOINT_CAT_ACCURACY, JOINT_NONCAT_ACCURACY]
         for turn_id, (turn_ref, turn_hyp) in enumerate(zip(dial_ref["turns"], dial_hyp["turns"])):
             metric_collections_per_turn = collections.defaultdict(lambda: collections.defaultdict(lambda: 1.0))
             if turn_ref["speaker"] != turn_hyp["speaker"]:
-                raise ValueError("Speakers don't match in dialogue with id {}".format(dial_id))
+                raise ValueError(f"Speakers don't match in dialogue with id {dial_id}")
 
             # Skip system turns because metrics are only computed for user turns.
             if turn_ref["speaker"] != "USER":
@@ -170,7 +168,7 @@ def get_metrics(
             if turn_ref["utterance"] != turn_hyp["utterance"]:
                 logging.error("Ref utt: %s", turn_ref["utterance"])
                 logging.error("Hyp utt: %s", turn_hyp["utterance"])
-                raise ValueError("Utterances don't match for dialogue with id {}".format(dial_id))
+                raise ValueError(f"Utterances don't match for dialogue with id {dial_id}")
 
             hyp_frames_by_service = {frame["service"]: frame for frame in turn_hyp["frames"]}
 
@@ -179,7 +177,7 @@ def get_metrics(
                 service_name = frame_ref["service"]
                 if service_name not in hyp_frames_by_service:
                     raise ValueError(
-                        "Frame for service {} not found in dialogue with id {}".format(service_name, dial_id)
+                        f"Frame for service {service_name} not found in dialogue with id {dial_id}"
                     )
                 service = service_schemas[service_name]
                 frame_hyp = hyp_frames_by_service[service_name]
@@ -201,7 +199,7 @@ def get_metrics(
                     frame_metric[SLOT_TAGGING_F1] = slot_tagging_f1_scores.f1
                     frame_metric[SLOT_TAGGING_PRECISION] = slot_tagging_f1_scores.precision
                     frame_metric[SLOT_TAGGING_RECALL] = slot_tagging_f1_scores.recall
-                frame_metric.update(goal_accuracy_dict)
+                frame_metric |= goal_accuracy_dict
 
                 frame_id = "{:s}-{:03d}-{:s}".format(dial_id, turn_id, frame_hyp["service"])
                 per_frame_metric[frame_id] = frame_metric
@@ -232,13 +230,12 @@ def get_metrics(
 
     all_metric_aggregate = {}
     for domain_key, domain_metric_vals in metric_collections.items():
-        domain_metric_aggregate = {}
-        for metric_key, value_list in domain_metric_vals.items():
-            if value_list:
-                # Metrics are macro-averaged across all frames.
-                domain_metric_aggregate[metric_key] = round(float(np.mean(value_list)) * 100.0, 2)
-            else:
-                domain_metric_aggregate[metric_key] = NAN_VAL
+        domain_metric_aggregate = {
+            metric_key: round(float(np.mean(value_list)) * 100.0, 2)
+            if value_list
+            else NAN_VAL
+            for metric_key, value_list in domain_metric_vals.items()
+        }
         all_metric_aggregate[domain_key] = domain_metric_aggregate
     return all_metric_aggregate, per_frame_metric
 
@@ -267,10 +264,8 @@ def evaluate(
     """
 
     with open(os.path.join(data_dir, eval_dataset, "schema.json")) as f:
-        eval_services = {}
         list_services = json.load(f)
-        for service in list_services:
-            eval_services[service["service_name"]] = service
+        eval_services = {service["service_name"]: service for service in list_services}
         f.close()
 
     dataset_ref = get_dataset_as_dict(os.path.join(data_dir, eval_dataset, "dialogues_*.json"))

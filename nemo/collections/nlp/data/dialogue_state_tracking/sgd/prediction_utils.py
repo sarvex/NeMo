@@ -107,10 +107,7 @@ def get_predicted_dialog(dialog: dict, all_predictions: dict, schemas: object, s
         dialog: dialog overwritten with prediction information
     """
     dialog_id = dialog["dialogue_id"]
-    if state_tracker == "baseline":
-        sys_slots_agg = {}
-    else:
-        sys_slots_agg = defaultdict(OrderedDict)
+    sys_slots_agg = {} if state_tracker == "baseline" else defaultdict(OrderedDict)
     all_slot_values = defaultdict(dict)
     for turn_idx, turn in enumerate(dialog["turns"]):
         if turn["speaker"] == "SYSTEM" and state_tracker == 'nemotracker':
@@ -123,7 +120,7 @@ def get_predicted_dialog(dialog: dict, all_predictions: dict, schemas: object, s
         if turn["speaker"] == "USER":
             user_utterance = turn["utterance"]
             system_utterance = dialog["turns"][turn_idx - 1]["utterance"] if turn_idx else ""
-            system_user_utterance = system_utterance + ' ' + user_utterance
+            system_user_utterance = f'{system_utterance} {user_utterance}'
             turn_id = "{:02d}".format(turn_idx)
             for frame in turn["frames"]:
 
@@ -136,12 +133,13 @@ def get_predicted_dialog(dialog: dict, all_predictions: dict, schemas: object, s
 
                 # The baseline model doesn't predict slot spans. Only state predictions
                 # are added.
-                state = {}
+                state = {
+                    "active_intent": get_predicted_intent(
+                        predictions=predictions[0],
+                        intents=service_schema.intents,
+                    )
+                }
 
-                # Add prediction for active intent. No Offset is subtracted since schema has now NONE intent at index 0
-                state["active_intent"] = get_predicted_intent(
-                    predictions=predictions[0], intents=service_schema.intents
-                )
                 # Add prediction for requested slots.
                 state["requested_slots"] = get_requested_slot(predictions=predictions[1], slots=service_schema.slots)
 
@@ -183,8 +181,7 @@ def get_predicted_intent(predictions: dict, intents: List[str]) -> str:
     """
     assert len(predictions) == len(intents)
     active_intent_id = max(predictions, key=lambda k: predictions[k][0]['intent_status'])
-    intent = intents[active_intent_id]
-    return intent
+    return intents[active_intent_id]
 
 
 def get_requested_slot(predictions: dict, slots: List[str]) -> List[str]:
@@ -197,8 +194,7 @@ def get_requested_slot(predictions: dict, slots: List[str]) -> List[str]:
         requested_slots: list of requested slots
     """
     active_indices = [k for k in predictions if predictions[k][0]["req_slot_status"] > REQ_SLOT_THRESHOLD]
-    requested_slots = list(map(lambda k: slots[k], active_indices))
-    return requested_slots
+    return list(map(lambda k: slots[k], active_indices))
 
 
 def write_predictions_to_file(

@@ -59,7 +59,6 @@ class ServiceSchema(object):
         categorical_slot_values = {}
         categorical_slot_value_ids = {}
         categorical_slot_ids = {}
-        non_categorical_slot_ids = {}
         for slot_id, slot in enumerate(self._categorical_slots):
             slot_schema = slot_schemas[slot]
             values = sorted(slot_schema["possible_values"])
@@ -68,9 +67,10 @@ class ServiceSchema(object):
             categorical_slot_value_ids[slot] = value_ids
             categorical_slot_ids[slot] = slot_id
 
-        for slot_id, slot in enumerate(self._non_categorical_slots):
-            non_categorical_slot_ids[slot] = slot_id
-
+        non_categorical_slot_ids = {
+            slot: slot_id
+            for slot_id, slot in enumerate(self._non_categorical_slots)
+        }
         self._categorical_slot_values = categorical_slot_values
         self._categorical_slot_value_ids = categorical_slot_value_ids
 

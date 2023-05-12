@@ -47,8 +47,7 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
         Returns:
             List of available pre-trained models.
         """
-        result = []
-        return result
+        return []
 
     def __init__(self, cfg: DictConfig, trainer: Trainer = None):
         # Get global rank and total number of GPU workers for IterableDataset partitioning, if applicable
@@ -223,7 +222,7 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
 
             A list of transcriptions in the same order as paths2audio_files
         """
-        if paths2audio_files is None or len(paths2audio_files) == 0:
+        if paths2audio_files is None or not paths2audio_files:
             return {}
         # We will store transcriptions here
         hypotheses = []
@@ -287,7 +286,7 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
         if self.joint.vocabulary == new_vocabulary:
             logging.warning(f"Old {self.joint.vocabulary} and new {new_vocabulary} match. Not changing anything.")
         else:
-            if new_vocabulary is None or len(new_vocabulary) == 0:
+            if new_vocabulary is None or not new_vocabulary:
                 raise ValueError(f'New vocabulary must be non-empty list of chars. But I got: {new_vocabulary}')
 
             joint_config = self.joint.to_config_dict()
@@ -398,7 +397,7 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
         device = 'gpu' if torch.cuda.is_available() else 'cpu'
         if config.get('use_dali', False):
             device_id = self.local_rank if device == 'gpu' else None
-            dataset = audio_to_text_dataset.get_dali_char_dataset(
+            return audio_to_text_dataset.get_dali_char_dataset(
                 config=config,
                 shuffle=shuffle,
                 device_id=device_id,
@@ -406,8 +405,6 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
                 world_size=self.world_size,
                 preprocessor_cfg=self._cfg.preprocessor,
             )
-            return dataset
-
         # Instantiate tarred dataset loader or normal dataset loader
         if config.get('is_tarred', False):
             if ('tarred_audio_filepaths' in config and config['tarred_audio_filepaths'] is None) or (
@@ -471,15 +468,15 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
         # Need to set this because if using an IterableDataset, the length of the dataloader is the total number
         # of samples rather than the number of batches, and this messes up the tqdm progress bar.
         # So we set the number of steps manually (to the correct number) to fix this.
-        if 'is_tarred' in train_data_config and train_data_config['is_tarred']:
-            # We also need to check if limit_train_batches is already set.
-            # If it's an int, we assume that the user has set it to something sane, i.e. <= # training batches,
-            # and don't change it. Otherwise, adjust batches accordingly if it's a float (including 1.0).
-            if isinstance(self._trainer.limit_train_batches, float):
-                self._trainer.limit_train_batches = int(
-                    self._trainer.limit_train_batches
-                    * ceil((len(self._train_dl.dataset) / self.world_size) / train_data_config['batch_size'])
-                )
+        if (
+            'is_tarred' in train_data_config
+            and train_data_config['is_tarred']
+            and isinstance(self._trainer.limit_train_batches, float)
+        ):
+            self._trainer.limit_train_batches = int(
+                self._trainer.limit_train_batches
+                * ceil((len(self._train_dl.dataset) / self.world_size) / train_data_config['batch_size'])
+            )
 
     def setup_validation_data(self, val_data_config: Optional[Union[DictConfig, Dict]]):
         """
@@ -636,15 +633,11 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
                 self.wer.update(encoded, encoded_len, transcript, transcript_len)
                 _, scores, words = self.wer.compute()
                 self.wer.reset()
-                tensorboard_logs.update({'training_batch_wer': scores.float() / words})
+                tensorboard_logs['training_batch_wer'] = scores.float() / words
 
         else:
             # If experimental fused Joint-Loss-WER is used
-            if (sample_id + 1) % log_every_n_steps == 0:
-                compute_wer = True
-            else:
-                compute_wer = False
-
+            compute_wer = (sample_id + 1) % log_every_n_steps == 0
             # Fused joint step
             loss_value, wer, _, _ = self.joint(
                 encoder_outputs=encoded,
@@ -658,7 +651,7 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
             tensorboard_logs = {'train_loss': loss_value, 'learning_rate': self._optimizer.param_groups[0]['lr']}
 
             if compute_wer:
-                tensorboard_logs.update({'training_batch_wer': wer})
+                tensorboard_logs['training_batch_wer'] = wer
 
         # Log items
         self.log_dict(tensorboard_logs)
@@ -697,10 +690,6 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
             wer, wer_num, wer_denom = self.wer.compute()
             self.wer.reset()
 
-            tensorboard_logs['val_wer_num'] = wer_num
-            tensorboard_logs['val_wer_denom'] = wer_denom
-            tensorboard_logs['val_wer'] = wer
-
         else:
             # If experimental fused Joint-Loss-WER is used
             compute_wer = True
@@ -724,9 +713,9 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
             if loss_value is not None:
                 tensorboard_logs['val_loss'] = loss_value
 
-            tensorboard_logs['val_wer_num'] = wer_num
-            tensorboard_logs['val_wer_denom'] = wer_denom
-            tensorboard_logs['val_wer'] = wer
+        tensorboard_logs['val_wer_num'] = wer_num
+        tensorboard_logs['val_wer_denom'] = wer_denom
+        tensorboard_logs['val_wer'] = wer
 
         return tensorboard_logs
 
@@ -788,8 +777,7 @@ class EncDecRNNTModel(ASRModel, ASRModuleMixin):
             'shuffle': False,
         }
 
-        temporary_datalayer = self._setup_dataloader_from_config(config=DictConfig(dl_config))
-        return temporary_datalayer
+        return self._setup_dataloader_from_config(config=DictConfig(dl_config))
 
     def on_after_backward(self):
         super().on_after_backward()

@@ -191,15 +191,12 @@ class BertPretrainingDataset(Dataset):
                 b_line_idx = random.choice(range(len(self.sentence_indices[b_filename])))
                 if b_filename != a_filename:
                     break
-                else:
-                    # Take another line from the same file
-                    b_line_pos = self.sentence_indices[b_filename][b_line_idx]
-                    a_line_pos = self.sentence_indices[a_filename][a_line_idx]
+                # Take another line from the same file
+                b_line_pos = self.sentence_indices[b_filename][b_line_idx]
+                a_line_pos = self.sentence_indices[a_filename][a_line_idx]
                     # TODO unclear about the following check
-                    if abs(b_line_pos - a_line_pos) > max_num_tokens:
-                        break
-                    else:
-                        pass
+                if abs(b_line_pos - a_line_pos) > max_num_tokens:
+                    break
         else:
             b_filename = a_filename
             b_line_idx = a_line_idx + 1
@@ -215,11 +212,7 @@ class BertPretrainingDataset(Dataset):
             # Truncates a pair of sequences to a maximum sequence length
             while (len(a) + len(b)) > max_num_tokens:
                 # Truncate the longer sequence
-                if len(a) > len(b):
-                    trunc_document = a
-                else:
-                    trunc_document = b
-
+                trunc_document = a if len(a) > len(b) else b
                 if len(trunc_document) <= 1:
                     raise ValueError(
                         "Input text corpora probably too small. "
@@ -282,8 +275,7 @@ class BertPretrainingDataset(Dataset):
         cand_indexes = [[ids[0]]]
         for tid in ids[1:]:
             token = self.tokenizer.ids_to_tokens([tid])[0]
-            is_suffix = token.startswith('\u2581')
-            if is_suffix:
+            if is_suffix := token.startswith('\u2581'):
                 # group together with its previous token to form a whole-word
                 cand_indexes[-1].append(tid)
             else:
@@ -293,7 +285,7 @@ class BertPretrainingDataset(Dataset):
         mask_id = self.tokenizer.token_to_id("[MASK]")
 
         for word_ids in cand_indexes:
-            is_special = (word_ids[0] == self.tokenizer.cls_id) or (word_ids[0] == self.tokenizer.sep_id)
+            is_special = word_ids[0] in [self.tokenizer.cls_id, self.tokenizer.sep_id]
             if is_special or (random.random() > self.mask_probability):
                 output_mask.extend([0] * len(word_ids))
                 masked_ids.extend(word_ids)
@@ -396,11 +388,9 @@ class BertPretrainingPreprocessedDataloader(DataLoader):
                 input_file=data_file, max_predictions_per_seq=self.max_predictions_per_seq
             )
             train_sampler = DistributedSampler(train_data)
-            # print("---")
-            # print(os.getpid(), train_sampler.rank, train_sampler.num_replicas, train_sampler.num_samples)
-            # print("---")
-            train_dataloader = DataLoader(
-                dataset=train_data, sampler=train_sampler, batch_size=self.batch_size, shuffle=False,
+            yield from DataLoader(
+                dataset=train_data,
+                sampler=train_sampler,
+                batch_size=self.batch_size,
+                shuffle=False,
             )
-            for x in train_dataloader:
-                yield x

@@ -83,7 +83,7 @@ class SmoothedCrossEntropyLoss(Loss):
         """
         if output_mask is None and self._pad_id is None:
             raise ValueError("Both output_mask and pad_id are None")
-        if output_mask is None and self._pad_id is not None:
+        if output_mask is None:
             output_mask = (labels != self._pad_id).to(log_probs.dtype)
 
         if output_mask.dtype is not log_probs.dtype:

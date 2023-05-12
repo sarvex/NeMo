@@ -74,7 +74,7 @@ def main():
         logging.info(f"Using local speaker model from {args.spkr_model}")
         speaker_model = EncDecSpeakerLabelModel.restore_from(restore_path=args.spkr_model)
     else:
-        logging.error(f"Please pass a trained .nemo file")
+        logging.error("Please pass a trained .nemo file")
         sys.exit()
 
     labels = []
@@ -132,7 +132,9 @@ def main():
             json.dump(item, f2)
             f2.write('\n')
 
-    logging.info("Inference labels have been written to {} manifest file".format(out_manifest))
+    logging.info(
+        f"Inference labels have been written to {out_manifest} manifest file"
+    )
 
 
 if __name__ == '__main__':

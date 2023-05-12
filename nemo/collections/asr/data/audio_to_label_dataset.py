@@ -25,7 +25,7 @@ def get_classification_label_dataset(featurizer, config: dict) -> audio_to_label
     Returns:
         An instance of AudioToClassificationLabelDataset.
     """
-    dataset = audio_to_label.AudioToClassificationLabelDataset(
+    return audio_to_label.AudioToClassificationLabelDataset(
         manifest_filepath=config['manifest_filepath'],
         labels=config['labels'],
         featurizer=featurizer,
@@ -34,7 +34,6 @@ def get_classification_label_dataset(featurizer, config: dict) -> audio_to_label
         trim=config.get('trim_silence', False),
         is_regression_task=config.get('is_regression_task', False),
     )
-    return dataset
 
 
 def get_speech_label_dataset(featurizer, config: dict) -> audio_to_label.AudioToSpeechLabelDataset:
@@ -47,7 +46,7 @@ def get_speech_label_dataset(featurizer, config: dict) -> audio_to_label.AudioTo
     Returns:
         An instance of AudioToSpeechLabelDataset.
     """
-    dataset = audio_to_label.AudioToSpeechLabelDataset(
+    return audio_to_label.AudioToSpeechLabelDataset(
         manifest_filepath=config['manifest_filepath'],
         labels=config['labels'],
         featurizer=featurizer,
@@ -58,7 +57,6 @@ def get_speech_label_dataset(featurizer, config: dict) -> audio_to_label.AudioTo
         shift_length=config.get('shift_length', 0.01),
         normalize_audio=config.get('normalize_audio', False),
     )
-    return dataset
 
 
 def get_tarred_classification_label_dataset(
@@ -77,7 +75,7 @@ def get_tarred_classification_label_dataset(
     Returns:
         An instance of TarredAudioToClassificationLabelDataset.
     """
-    dataset = audio_to_label.TarredAudioToClassificationLabelDataset(
+    return audio_to_label.TarredAudioToClassificationLabelDataset(
         audio_tar_filepaths=config['tarred_audio_filepaths'],
         manifest_filepath=config['manifest_filepath'],
         labels=config['labels'],
@@ -91,7 +89,6 @@ def get_tarred_classification_label_dataset(
         world_size=world_size,
         is_regression_task=config.get('is_regression_task', False),
     )
-    return dataset
 
 
 def get_tarred_speech_label_dataset(
@@ -110,7 +107,7 @@ def get_tarred_speech_label_dataset(
     Returns:
         An instance of TarredAudioToSpeechLabelDataset.
     """
-    dataset = audio_to_label.TarredAudioToSpeechLabelDataset(
+    return audio_to_label.TarredAudioToSpeechLabelDataset(
         audio_tar_filepaths=config['tarred_audio_filepaths'],
         manifest_filepath=config['manifest_filepath'],
         labels=config['labels'],
@@ -126,4 +123,3 @@ def get_tarred_speech_label_dataset(
         global_rank=global_rank,
         world_size=world_size,
     )
-    return dataset

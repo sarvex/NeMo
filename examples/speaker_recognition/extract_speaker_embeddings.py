@@ -74,7 +74,7 @@ def main():
         speaker_model = ExtractSpeakerEmbeddingsModel.restore_from(restore_path=args.model_path)
     else:
         speaker_model = ExtractSpeakerEmbeddingsModel.from_pretrained(model_name="speakerverification_speakernet")
-        logging.info(f"using pretrained speaker verification model from NGC")
+        logging.info("using pretrained speaker verification model from NGC")
 
     num_gpus = 1 if torch.cuda.is_available() else 0
     if not num_gpus:

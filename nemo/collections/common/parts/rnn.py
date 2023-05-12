@@ -199,11 +199,11 @@ class LSTMDropout(torch.nn.Module):
                     hidden_size = n // 4
                     p.data.fill_(0)
                     p.data[hidden_size : 2 * hidden_size] = torch.log(
-                        torch.nn.init.uniform_(p.data[0:hidden_size], 1, t_max - 1)
+                        torch.nn.init.uniform_(p.data[:hidden_size], 1, t_max - 1)
                     )
                     # forget gate biases = log(uniform(1, Tmax-1))
-                    p.data[0:hidden_size] = -p.data[hidden_size : 2 * hidden_size]
-                    # input gate biases = -(forget gate biases)
+                    p.data[:hidden_size] = -p.data[hidden_size : 2 * hidden_size]
+                                # input gate biases = -(forget gate biases)
 
         elif forget_gate_bias is not None:
             for name, v in self.lstm.named_parameters():
@@ -212,13 +212,13 @@ class LSTMDropout(torch.nn.Module):
                     bias.data[hidden_size : 2 * hidden_size].fill_(forget_gate_bias)
                 if "bias_hh" in name:
                     bias = getattr(self.lstm, name)
-                    bias.data[hidden_size : 2 * hidden_size] *= float(hidden_hidden_bias_scale)
+                    bias.data[hidden_size : 2 * hidden_size] *= hidden_hidden_bias_scale
 
         self.dropout = torch.nn.Dropout(dropout) if dropout else None
 
         for name, v in self.named_parameters():
             if 'weight' in name or 'bias' in name:
-                v.data *= float(weights_init_scale)
+                v.data *= weights_init_scale
 
     def forward(
         self, x: torch.Tensor, h: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
@@ -358,16 +358,15 @@ class BNRNNSum(torch.nn.Module):
         """
         if hx is None:
             return [None] * self.rnn_layers
-        else:
-            h_0, c_0 = hx
+        h_0, c_0 = hx
 
-            if h_0.shape[0] != self.rnn_layers:
-                raise ValueError(
-                    'Provided initial state value `h_0` must be of shape : '
-                    '[num_layers * num_directions, batch, hidden_size]'
-                )
+        if h_0.shape[0] != self.rnn_layers:
+            raise ValueError(
+                'Provided initial state value `h_0` must be of shape : '
+                '[num_layers * num_directions, batch, hidden_size]'
+            )
 
-            return [(h_0[i], c_0[i]) for i in range(h_0.shape[0])]
+        return [(h_0[i], c_0[i]) for i in range(h_0.shape[0])]
 
     def _flatten_parameters(self):
         for layer in self.layers:
@@ -382,7 +381,7 @@ class StackTime(torch.nn.Module):
 
     def __init__(self, factor: int):
         super().__init__()
-        self.factor = int(factor)
+        self.factor = factor
 
     def forward(self, x: List[Tuple[torch.Tensor]]) -> (torch.Tensor, torch.Tensor):
         # T, B, U
@@ -505,14 +504,23 @@ class StackedLSTM(torch.nn.Module):
         if states is None:
             temp_states: List[Tuple[torch.Tensor, torch.Tensor]] = []
             batch = input.size(1)
-            for layer in self.layers:
-                temp_states.append(
-                    (
-                        torch.zeros(batch, layer.cell.hidden_size, dtype=input.dtype, device=input.device),
-                        torch.zeros(batch, layer.cell.hidden_size, dtype=input.dtype, device=input.device),
-                    )
+            temp_states.extend(
+                (
+                    torch.zeros(
+                        batch,
+                        layer.cell.hidden_size,
+                        dtype=input.dtype,
+                        device=input.device,
+                    ),
+                    torch.zeros(
+                        batch,
+                        layer.cell.hidden_size,
+                        dtype=input.dtype,
+                        device=input.device,
+                    ),
                 )
-
+                for layer in self.layers
+            )
             states = temp_states
 
         output_states: List[Tuple[torch.Tensor, torch.Tensor]] = []

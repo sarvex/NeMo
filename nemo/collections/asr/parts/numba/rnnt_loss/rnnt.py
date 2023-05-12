@@ -109,9 +109,6 @@ def rnnt_loss_cpu(
             input_lengths=input_lengths.data,
         )
 
-        if status != global_constants.RNNTStatus.RNNT_STATUS_SUCCESS:
-            raise RuntimeError("Could not calculate forward scores")
-
     else:
         ### FLATTEN GRAD TENSOR ###
         grads, grads_shape = rnnt_helper.flatten_tensor(grads)
@@ -125,8 +122,8 @@ def rnnt_loss_cpu(
             input_lengths=input_lengths.data,
         )
 
-        if status != global_constants.RNNTStatus.RNNT_STATUS_SUCCESS:
-            raise RuntimeError("Could not calculate forward scores")
+    if status != global_constants.RNNTStatus.RNNT_STATUS_SUCCESS:
+        raise RuntimeError("Could not calculate forward scores")
 
     del cpu_workspace, wrapper
     return True
@@ -210,9 +207,6 @@ def rnnt_loss_gpu(
             input_lengths=input_lengths.data,
         )
 
-        if status != global_constants.RNNTStatus.RNNT_STATUS_SUCCESS:
-            raise RuntimeError("Could not calculate forward scores")
-
     else:
         ### FLATTEN GRAD TENSOR ###
         grads, grads_shape = rnnt_helper.flatten_tensor(grads)
@@ -226,8 +220,8 @@ def rnnt_loss_gpu(
             input_lengths=input_lengths.data,
         )
 
-        if status != global_constants.RNNTStatus.RNNT_STATUS_SUCCESS:
-            raise RuntimeError("Could not calculate forward scores")
+    if status != global_constants.RNNTStatus.RNNT_STATUS_SUCCESS:
+        raise RuntimeError("Could not calculate forward scores")
 
     del gpu_workspace, wrapper
     return True

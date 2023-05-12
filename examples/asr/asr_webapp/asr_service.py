@@ -34,7 +34,7 @@ CORS(app)
 
 # Upload folder for audio files; models are stored in permanent cache
 # which gets deleted once the container shuts down
-app.config[f'UPLOAD_FOLDER'] = f"tmp/"
+app.config['UPLOAD_FOLDER'] = "tmp/"
 
 
 @app.route('/initialize_model', methods=['POST'])
@@ -144,7 +144,7 @@ def upload_audio_files():
 
     # temporary id to store data
     uuid = str(uuid4())
-    data_store = os.path.join(app.config[f'UPLOAD_FOLDER'], uuid)
+    data_store = os.path.join(app.config['UPLOAD_FOLDER'], uuid)
 
     # If the user attempt to upload another set of files without first transcribing them,
     # delete the old cache of files and create a new cache entirely
@@ -181,7 +181,7 @@ def _remove_older_files_if_exists():
     old_uuid = request.cookies.get('uuid', '')
     if old_uuid is not None and old_uuid != '':
         # delete old data store
-        old_data_store = os.path.join(app.config[f'UPLOAD_FOLDER'], old_uuid)
+        old_data_store = os.path.join(app.config['UPLOAD_FOLDER'], old_uuid)
 
         logging.info("Tried uploading more data without using old uploaded data. Purging data cache.")
         shutil.rmtree(old_data_store, ignore_errors=True)
@@ -201,7 +201,7 @@ def remove_audio_files():
     """
     # Get the unique cache id from cookie
     uuid = request.cookies.get("uuid", "")
-    data_store = os.path.join(app.config[f'UPLOAD_FOLDER'], uuid)
+    data_store = os.path.join(app.config['UPLOAD_FOLDER'], uuid)
 
     # If the data does not exist (cache is empty), notify user
     if not os.path.exists(data_store) or uuid == "":
@@ -212,8 +212,6 @@ def remove_audio_files():
             'updates/remove_files.html', pre_exec=files_dont_exist, url=url_for('remove_audio_files')
         )
         result = unescape(result)
-        return result
-
     else:
         # delete data that exists in cache
         shutil.rmtree(data_store, ignore_errors=True)
@@ -227,7 +225,8 @@ def remove_audio_files():
 
         result = make_response(result)
         result.set_cookie("uuid", '', expires=0)
-        return result
+
+    return result
 
 
 @app.route('/transcribe', methods=['POST'])
@@ -249,24 +248,28 @@ def transcribe():
 
     # If model name is not selected via Load Model, notify user.
     if model_name is None or model_name == '':
-        result = render_template('toast_msg.html', toast_message="Model has not been initialized !", timeout=2000)
-        return result
-
+        return render_template(
+            'toast_msg.html',
+            toast_message="Model has not been initialized !",
+            timeout=2000,
+        )
     # load whether gpu should be used
     use_gpu_if_available = request.cookies.get('use_gpu') == 'on'
     gpu_used = torch.cuda.is_available() and use_gpu_if_available
 
     # Load audio from paths
     uuid = request.cookies.get("uuid", "")
-    data_store = os.path.join(app.config[f'UPLOAD_FOLDER'], uuid)
+    data_store = os.path.join(app.config['UPLOAD_FOLDER'], uuid)
 
     files = list(glob.glob(os.path.join(data_store, "*.wav")))
 
     # If no files found in cache, notify user
-    if len(files) == 0:
-        result = render_template('toast_msg.html', toast_message="No audio files were found !", timeout=2000)
-        return result
-
+    if not files:
+        return render_template(
+            'toast_msg.html',
+            toast_message="No audio files were found !",
+            timeout=2000,
+        )
     # transcribe file via model api
     t1 = time.time()
     transcriptions = model_api.transcribe_all(files, model_name, use_gpu_if_available=use_gpu_if_available)
@@ -286,8 +289,7 @@ def transcribe():
     if type(transcriptions) == str and transcriptions == model_api.TAG_ERROR_DURING_TRANSCRIPTION:
         toast = render_template(
             'toast_msg.html',
-            toast_message=f"Failed to transcribe files due to unknown reason. "
-            f"Please provide 16 KHz Monochannel wav files onle.",
+            toast_message='Failed to transcribe files due to unknown reason. Please provide 16 KHz Monochannel wav files onle.',
             timeout=5000,
         )
         transcriptions = ["" for _ in range(len(files))]
@@ -301,11 +303,10 @@ def transcribe():
             timeout=5000,
         )
 
-    # Write results to data table
-    results = []
-    for filename, transcript in zip(files, transcriptions):
-        results.append(dict(filename=os.path.basename(filename), transcription=transcript))
-
+    results = [
+        dict(filename=os.path.basename(filename), transcription=transcript)
+        for filename, transcript in zip(files, transcriptions)
+    ]
     result = render_template('transcripts.html', transcripts=results)
     result = toast + result
     result = unescape(result)
@@ -332,7 +333,7 @@ def remove_tmp_dir_at_exit():
         uuid = request.cookies.get("uuid", "")
 
         if uuid is not None or uuid != "":
-            cache_dir = os.path.join(os.path.join(app.config[f'UPLOAD_FOLDER'], uuid))
+            cache_dir = os.path.join(os.path.join(app.config['UPLOAD_FOLDER'], uuid))
             logging.info(f"Removing cache file for worker : {os.getpid()}")
 
             if os.path.exists(cache_dir):
@@ -342,7 +343,7 @@ def remove_tmp_dir_at_exit():
     except RuntimeError:
         # Working outside of request context (probably shutdown)
         # simply delete entire tmp folder
-        shutil.rmtree(app.config[f'UPLOAD_FOLDER'], ignore_errors=True)
+        shutil.rmtree(app.config['UPLOAD_FOLDER'], ignore_errors=True)
 
 
 @app.route('/')

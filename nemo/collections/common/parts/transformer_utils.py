@@ -75,5 +75,4 @@ def transformer_weights_init(module, std_init_range=0.02, xavier=True):
 
 
 def mask_padded_tokens(tokens, pad_id):
-    mask = tokens != pad_id
-    return mask
+    return tokens != pad_id

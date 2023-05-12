@@ -41,8 +41,7 @@ class EncDecRNNTBPEModel(EncDecRNNTModel, ASRBPEMixin):
         Returns:
             List of available pre-trained models.
         """
-        result = []
-        return result
+        return []
 
     def __init__(self, cfg: DictConfig, trainer: Trainer = None):
         # Convert to Hydra 1.0 compatible DictConfig
@@ -120,7 +119,7 @@ class EncDecRNNTBPEModel(EncDecRNNTModel, ASRBPEMixin):
             )
 
         if new_tokenizer_type.lower() not in ('bpe', 'wpe'):
-            raise ValueError(f'New tokenizer type must be either `bpe` or `wpe`')
+            raise ValueError('New tokenizer type must be either `bpe` or `wpe`')
 
         tokenizer_cfg = OmegaConf.create({'dir': new_tokenizer_dir, 'type': new_tokenizer_type})
 
@@ -286,5 +285,4 @@ class EncDecRNNTBPEModel(EncDecRNNTModel, ASRBPEMixin):
             'shuffle': False,
         }
 
-        temporary_datalayer = self._setup_dataloader_from_config(config=DictConfig(dl_config))
-        return temporary_datalayer
+        return self._setup_dataloader_from_config(config=DictConfig(dl_config))

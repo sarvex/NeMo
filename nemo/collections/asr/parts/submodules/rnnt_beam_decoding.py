@@ -186,7 +186,7 @@ class BeamRNNTInfer(Typing):
         if tsd_max_sym_exp_per_step is None:
             tsd_max_sym_exp_per_step = -1
 
-        if search_type in ['tsd', 'alsd', 'nsc'] and not self.decoder.blank_as_pad:
+        if search_type in {'tsd', 'alsd', 'nsc'} and not self.decoder.blank_as_pad:
             raise ValueError(
                 f"Search type was chosen as '{search_type}', however the decoder module provided "
                 f"does not support the `blank` token as a pad value. {search_type} requires "
@@ -284,12 +284,7 @@ class BeamRNNTInfer(Typing):
         Returns:
             hyp: 1-best decoding results
         """
-        if self.preserve_alignments:
-            # Alignments is a 2-dimensional dangling list representing T x U
-            alignments = [[]]
-        else:
-            alignments = None
-
+        alignments = [[]] if self.preserve_alignments else None
         # Initialize zero state vectors
         dec_state = self.decoder.initialize_state(h)
 
@@ -341,9 +336,8 @@ class BeamRNNTInfer(Typing):
                 symbols_added += 1
 
         # Remove trailing empty list of alignments
-        if self.preserve_alignments:
-            if len(alignments[-1]) == 0:
-                del alignments[-1]
+        if self.preserve_alignments and len(alignments[-1]) == 0:
+            del alignments[-1]
 
         # attach alignments to hypothesis
         hyp.alignments = alignments
@@ -369,11 +363,7 @@ class BeamRNNTInfer(Typing):
         ids.remove(self.blank)
 
         # Used when blank token is first vs last token
-        if self.blank == 0:
-            index_incr = 1
-        else:
-            index_incr = 0
-
+        index_incr = 1 if self.blank == 0 else 0
         # Initialize zero vector states
         dec_state = self.decoder.initialize_state(h)
 
@@ -482,11 +472,7 @@ class BeamRNNTInfer(Typing):
         ids.remove(self.blank)
 
         # Used when blank token is first vs last token
-        if self.blank == 0:
-            index_incr = 1
-        else:
-            index_incr = 0
-
+        index_incr = 1 if self.blank == 0 else 0
         # prepare the batched beam states
         beam = min(self.beam_size, self.vocab_size)
         beam_state = self.decoder.initialize_state(
@@ -597,11 +583,7 @@ class BeamRNNTInfer(Typing):
         ids.remove(self.blank)
 
         # Used when blank token is first vs last token
-        if self.blank == 0:
-            index_incr = 1
-        else:
-            index_incr = 0
-
+        index_incr = 1 if self.blank == 0 else 0
         # prepare the batched beam states
         beam = min(self.beam_size, self.vocab_size)
 
@@ -634,8 +616,6 @@ class BeamRNNTInfer(Typing):
 
         # ALSD runs for T + U_max steps
         for i in range(h_length + u_max):
-            # Update caches
-            A = []
             B_ = []
             h_states = []
 
@@ -696,6 +676,8 @@ class BeamRNNTInfer(Typing):
                 beam_logp = beam_logp[:, 0, 0, :]  # [B=beam, V + 1]
                 beam_topk = beam_logp[:, ids].topk(beam, dim=-1)
 
+                # Update caches
+                A = []
                 for j, hyp in enumerate(B_):
                     # For all updated samples in the batch, add it as the blank token
                     # In this step, we dont add a token but simply update score
@@ -718,11 +700,7 @@ class BeamRNNTInfer(Typing):
 
                     # Here, we carefully select the indices of the states that we want to preserve
                     # for the next token (non-blank) update.
-                    if sub_batch_ids is not None:
-                        h_states_idx = sub_batch_ids[j]
-                    else:
-                        h_states_idx = j
-
+                    h_states_idx = sub_batch_ids[j] if sub_batch_ids is not None else j
                     # for each current hypothesis j
                     # extract the top token score and top token id for the jth hypothesis
                     for logp, k in zip(beam_topk[0][j], beam_topk[1][j] + index_incr):
@@ -745,14 +723,10 @@ class BeamRNNTInfer(Typing):
                 B = sorted(A, key=lambda x: x.score, reverse=True)[:beam]
                 B = self.recombine_hypotheses(B)
 
-            # If B_ is empty list, then we may be able to early exit
             elif len(batch_ids) == len(batch_removal_ids):
                 break
 
-        if final:
-            return self.sort_nbest(final)
-        else:
-            return B
+        return self.sort_nbest(final) if final else B
 
     def recombine_hypotheses(self, hypotheses: List[Hypothesis]) -> List[Hypothesis]:
         """Recombine hypotheses with equivalent output sequence.

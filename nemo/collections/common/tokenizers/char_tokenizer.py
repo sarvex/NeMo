@@ -78,14 +78,13 @@ class CharTokenizer(TokenizerSpec):
         Args:
             special_tokens_dict: dict of special tokens
         """
-        for token in special_tokens_dict:
-            token_str = special_tokens_dict[token]
+        for token, token_str in special_tokens_dict.items():
             if token_str not in self.vocab:
                 self.vocab[token_str] = len(self.vocab)
             setattr(self, token, token_str)
 
     def text_to_tokens(self, text):
-        token_candidates = [char for char in text]
+        token_candidates = list(text)
         tokens = []
         for token in token_candidates:
             if token in self.vocab:

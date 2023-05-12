@@ -142,11 +142,10 @@ class _GreedyRNNTInfer(Typing):
             if label.dtype != torch.long:
                 label = label.long()
 
-        else:
-            # Label is an integer
-            if label == self._SOS:
-                return self.decoder.predict(None, hidden, add_sos=add_sos, batch_size=batch_size)
+        elif label == self._SOS:
+            return self.decoder.predict(None, hidden, add_sos=add_sos, batch_size=batch_size)
 
+        else:
             label = label_collate([[label]])
 
         # output: [B, 1, K]
@@ -167,13 +166,13 @@ class _GreedyRNNTInfer(Typing):
         with torch.no_grad():
             logits = self.joint.joint(enc, pred)
 
-            if log_normalize is None:
-                if not logits.is_cuda:  # Use log softmax only if on CPU
-                    logits = logits.log_softmax(dim=len(logits.shape) - 1)
-            else:
-                if log_normalize:
-                    logits = logits.log_softmax(dim=len(logits.shape) - 1)
-
+            if (
+                log_normalize is None
+                and not logits.is_cuda
+                or log_normalize is not None
+                and log_normalize
+            ):  # Use log softmax only if on CPU
+                logits = logits.log_softmax(dim=len(logits.shape) - 1)
         return logits
 
 
@@ -271,12 +270,7 @@ class GreedyRNNTInfer(_GreedyRNNTInfer):
         label = []
         timesteps = []
 
-        if self.preserve_alignments:
-            # Alignments is a 2-dimensional dangling list representing T x U
-            alignments = [[]]
-        else:
-            alignments = None
-
+        alignments = [[]] if self.preserve_alignments else None
         # For timestep t in X_t
         for time_idx in range(out_len):
             # Extract encoder embedding at timestep t
@@ -291,7 +285,7 @@ class GreedyRNNTInfer(_GreedyRNNTInfer):
             while not_blank and (self.max_symbols is None or symbols_added < self.max_symbols):
                 # In the first timestep, we initialize the network with RNNT Blank
                 # In later timesteps, we provide previous predicted label as input.
-                last_label = self._SOS if label == [] else label[-1]
+                last_label = self._SOS if not label else label[-1]
 
                 # Perform prediction network and joint network steps.
                 g, hidden_prime = self._pred_step(last_label, hidden)
@@ -330,9 +324,8 @@ class GreedyRNNTInfer(_GreedyRNNTInfer):
                 symbols_added += 1
 
         # Remove trailing empty list of Alignments
-        if self.preserve_alignments:
-            if len(alignments[-1]) == 0:
-                del alignments[-1]
+        if self.preserve_alignments and len(alignments[-1]) == 0:
+            del alignments[-1]
 
         return label, timesteps, alignments
 
@@ -436,10 +429,7 @@ class GreedyBatchedRNNTInfer(_GreedyRNNTInfer):
 
             # If alignments need to be preserved, register a danling list to hold the values
             if self.preserve_alignments:
-                # alignments is a 3-dimensional dangling list representing B x T x U
-                alignments = []
-                for _ in range(batchsize):
-                    alignments.append([[]])
+                alignments = [[[]] for _ in range(batchsize)]
             else:
                 alignments = None
 
@@ -581,10 +571,7 @@ class GreedyBatchedRNNTInfer(_GreedyRNNTInfer):
 
         # If alignments need to be preserved, register a danling list to hold the values
         if self.preserve_alignments:
-            # alignments is a 3-dimensional dangling list representing B x T x U
-            alignments = []
-            for _ in range(batchsize):
-                alignments.append([[]])
+            alignments = [[[]] for _ in range(batchsize)]
         else:
             alignments = None
 

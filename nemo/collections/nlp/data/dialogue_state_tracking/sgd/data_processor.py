@@ -188,8 +188,7 @@ class SGDDataProcessor(object):
         Returns:
             seen_services: list of seen services
         """
-        seen_services = self._seen_services[dataset_split]
-        return seen_services
+        return self._seen_services[dataset_split]
 
     def _generate_dialog_examples(self, dataset_split: str, schemas: object, subsample: bool):
         """
@@ -201,7 +200,9 @@ class SGDDataProcessor(object):
         Returns:
             examples: a list of `InputExample`s.
         """
-        logging.info(f'Creating examples and slot relation list from the dialogues started...')
+        logging.info(
+            'Creating examples and slot relation list from the dialogues started...'
+        )
         dialog_paths = [
             os.path.join(self.data_dir, dataset_split, "dialogues_{:03d}.json".format(i))
             for i in self._file_ranges[dataset_split]

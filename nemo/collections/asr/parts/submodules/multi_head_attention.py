@@ -100,10 +100,7 @@ class MultiHeadAttention(nn.Module):
         n_batch = value.size(0)
         if mask is not None:
             mask = mask.unsqueeze(1)  # (batch, 1, time1, time2)
-            if scores.dtype == torch.float16:
-                dtype = np.float16
-            else:
-                dtype = np.float32
+            dtype = np.float16 if scores.dtype == torch.float16 else np.float32
             min_value = np.finfo(dtype).min
             scores = scores.masked_fill(mask, min_value)
             self.attn = torch.softmax(scores, dim=-1).masked_fill(mask, 0.0)  # (batch, head, time1, time2)

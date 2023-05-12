@@ -58,7 +58,7 @@ class CharParser:
         self._do_lowercase = do_lowercase
 
         self._labels_map = {label: index for index, label in enumerate(labels)}
-        self._special_labels = set([label for label in labels if len(label) > 1])
+        self._special_labels = {label for label in labels if len(label) > 1}
 
     def __call__(self, text: str) -> Optional[List[int]]:
         if self._do_normalize:
@@ -66,9 +66,7 @@ class CharParser:
             if text is None:
                 return None
 
-        text_tokens = self._tokenize(text)
-
-        return text_tokens
+        return self._tokenize(text)
 
     def _normalize(self, text: str) -> Optional[str]:
         text = text.strip()
@@ -89,13 +87,8 @@ class CharParser:
                 tokens.append(self._labels_map[word])
                 continue
 
-            for char in word:
-                tokens.append(self._labels_map.get(char, self._unk_id))
-
-        # If unk_id == blank_id, OOV tokens are removed.
-        tokens = [token for token in tokens if token != self._blank_id]
-
-        return tokens
+            tokens.extend(self._labels_map.get(char, self._unk_id) for char in word)
+        return [token for token in tokens if token != self._blank_id]
 
 
 class ENCharParser(CharParser):
@@ -129,9 +122,7 @@ class ENCharParser(CharParser):
         for label in self._labels:
             punctuation = punctuation.replace(label, '')
 
-        table = str.maketrans(punctuation, ' ' * len(punctuation))
-
-        return table
+        return str.maketrans(punctuation, ' ' * len(punctuation))
 
     def _normalize(self, text: str) -> Optional[str]:
         # noinspection PyBroadException
@@ -180,6 +171,4 @@ def make_parser(labels: Optional[List[str]] = None, name: str = 'base', **kwargs
         labels = list(string.printable)
 
     parser_type = NAME_TO_PARSER[name]
-    parser = parser_type(labels=labels, **kwargs)
-
-    return parser
+    return parser_type(labels=labels, **kwargs)

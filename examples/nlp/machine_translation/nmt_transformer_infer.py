@@ -51,14 +51,13 @@ def main():
 
     args = parser.parse_args()
     torch.set_grad_enabled(False)
-    if args.model.endswith(".nemo"):
-        logging.info("Attempting to initialize from .nemo file")
-        model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(restore_path=args.model)
-        src_text = []
-        tgt_text = []
-    else:
+    if not args.model.endswith(".nemo"):
         raise NotImplemented(f"Only support .nemo files, but got: {args.model}")
 
+    logging.info("Attempting to initialize from .nemo file")
+    model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(restore_path=args.model)
+    src_text = []
+    tgt_text = []
     if torch.cuda.is_available():
         model = model.cuda()
 

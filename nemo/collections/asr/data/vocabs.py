@@ -41,8 +41,7 @@ def _text_preprocessing(text):
     text = unicode(text)
     text = ''.join(char for char in unicodedata.normalize('NFD', text) if unicodedata.category(char) != 'Mn')
     text = text.lower()
-    text = re.sub("[^ a-z'\".,?!()\[\]:;\-]", "", text)
-    return text
+    return re.sub("[^ a-z'\".,?!()\[\]:;\-]", "", text)
 
 
 def _word_tokenize(text):
@@ -102,9 +101,7 @@ class G2p:
         return g2p_dict
 
     def handle_ambiguous(self, word):
-        if not self.ignore_ambiguous_words or len(self.g2p_dict[word]) == 1:
-            return True
-        return False
+        return not self.ignore_ambiguous_words or len(self.g2p_dict[word]) == 1
 
     def __call__(self, text):
         text = self.text_preprocessing_func(text)
@@ -118,14 +115,9 @@ class G2p:
             # punctuation
             if re.search("[a-zA-Z]", word) is None:
                 pron = list(word)
-            # homograph
             elif word in self.homograph2features:
                 pron1, pron2, pos1 = self.homograph2features[word]
-                if pos.startswith(pos1):
-                    pron = pron1
-                else:
-                    pron = pron2
-            # `'s` suffix
+                pron = pron1 if pos.startswith(pos1) else pron2
             elif (
                 len(word) > 2
                 and word.endswith("'s")
@@ -134,7 +126,6 @@ class G2p:
                 and self.handle_ambiguous(word[:-2])
             ):
                 pron = self.g2p_dict[word[:-2]][0] + ["Z"]
-            # `s` suffix
             elif (
                 len(word) > 1
                 and word.endswith("s")
@@ -143,12 +134,11 @@ class G2p:
                 and self.handle_ambiguous(word[:-1])
             ):
                 pron = self.g2p_dict[word[:-1]][0] + ["Z"]
-            # g2p dict
             elif word in self.g2p_dict and self.handle_ambiguous(word):
                 pron = self.g2p_dict[word][0]
-            # word with hyphens
             elif len(word_by_hyphen) > 1 and all(
-                [sub_word in self.g2p_dict and self.handle_ambiguous(sub_word) for sub_word in word_by_hyphen]
+                sub_word in self.g2p_dict and self.handle_ambiguous(sub_word)
+                for sub_word in word_by_hyphen
             ):
                 pron = []
                 for sub_word in word_by_hyphen:
@@ -156,12 +146,7 @@ class G2p:
                     pron.extend(["-"])
                 pron.pop()
             else:
-                if self.use_seq2seq_for_oov:
-                    # run gru-based seq2seq model from _g2p
-                    pron = _g2p.predict(word)
-                else:
-                    pron = word
-
+                pron = _g2p.predict(word) if self.use_seq2seq_for_oov else word
             prons.extend(pron)
 
         return prons
@@ -314,10 +299,7 @@ class Phonemes(Base):
         self.spaces = spaces
         self.pad_with_space = pad_with_space
 
-        if improved_version_g2p:
-            self.g2p = G2p(phoneme_dict_path)
-        else:
-            self.g2p = _g2p
+        self.g2p = G2p(phoneme_dict_path) if improved_version_g2p else _g2p
 
     def encode(self, text):
         """See base class."""
@@ -329,7 +311,7 @@ class Phonemes(Base):
                 p = p[:2]
 
             # Add space if last one isn't one
-            if p == space and len(ps) > 0 and ps[-1] != space:
+            if p == space and ps and ps[-1] != space:
                 ps.append(p)
 
             # Add next phoneme
@@ -338,7 +320,7 @@ class Phonemes(Base):
 
             # Add punct and remove space if needed
             if (p in self.PUNCT) and self.punct:
-                if not self.spaces and len(ps) > 0 and ps[-1] == space:
+                if not self.spaces and ps and ps[-1] == space:
                     ps.pop()
                 ps.append(p)
 

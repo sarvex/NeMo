@@ -153,7 +153,7 @@ class InputExample(object):
             slot = self.service_schema.get_non_categorical_slot_from_id(self.noncategorical_slot_id)
             slot_values_in_state[slot] = STR_DONTCARE
 
-        summary_dict = {
+        return {
             "utt_tok_mask_pairs": utt_tok_mask_pairs,
             "utt_len": seq_length,
             "categorical_slot_id": self.categorical_slot_id,
@@ -163,7 +163,6 @@ class InputExample(object):
             "active_intent": active_intent,
             "slot_values_in_state": slot_values_in_state,
         }
-        return summary_dict
 
     def add_utterance_features(
         self, system_tokens, system_inv_alignments, user_tokens, user_inv_alignments, system_utterance, user_utterance
@@ -186,29 +185,18 @@ class InputExample(object):
         # Input sequence length for utterance BERT encoder
         max_utt_len = self._max_seq_length
 
-        # Modify lengths of schema description & utterance so that length of total utt
-        # (including cls_token, setp_token, sep_token) is no more than max_utt_len
-        is_too_long = truncate_seq_pair(system_tokens, user_tokens, max_utt_len - 3)
-        if is_too_long:
+        if is_too_long := truncate_seq_pair(
+            system_tokens, user_tokens, max_utt_len - 3
+        ):
             logging.debug(
                 f'Utterance sequence truncated in example id - {self.example_id} from {len(system_tokens) + len(user_tokens)}.'
             )
 
-        # Construct the tokens, segment mask and valid token mask which will be
-        # input to BERT, using the tokens for schema description (sequence A) and
-        # system and user utterance (sequence B).
-        utt_subword = []
-        utt_seg = []
-        utt_mask = []
-        start_char_idx = []
-        end_char_idx = []
-
-        utt_subword.append(self._tokenizer.cls_token)
-        utt_seg.append(0)
-        utt_mask.append(1)
-        start_char_idx.append(0)
-        end_char_idx.append(0)
-
+        utt_subword = [self._tokenizer.cls_token]
+        utt_seg = [0]
+        utt_mask = [1]
+        start_char_idx = [0]
+        end_char_idx = [0]
         for subword_idx, subword in enumerate(system_tokens):
             utt_subword.append(subword)
             utt_seg.append(0)
@@ -257,14 +245,13 @@ class InputExample(object):
 
     def make_copy(self):
         """Make a copy of the current example with utterance features."""
-        new_example = InputExample(
+        return InputExample(
             schema_config=self.schema_config,
             service_schema=self.service_schema,
             example_id=self.example_id,
             example_id_num=self.example_id_num.copy(),
             tokenizer=self._tokenizer,
         )
-        return new_example
 
     def make_copy_of_categorical_features(self):
         """Make a copy of the current example with utterance and categorical features."""

@@ -241,9 +241,8 @@ class RNNTDecoder(rnnt_abstract.AbstractRNNTDecoder):
 
         # If in training mode, and random_state_sampling is set,
         # initialize state to random normal distribution tensor.
-        if state is None:
-            if self.random_state_sampling and self.training:
-                state = self.initialize_state(y)
+        if state is None and self.random_state_sampling and self.training:
+            state = self.initialize_state(y)
 
         # Forward step through RNN
         y = y.transpose(0, 1)  # (U + 1, B, H)
@@ -286,7 +285,7 @@ class RNNTDecoder(rnnt_abstract.AbstractRNNTDecoder):
         else:
             embed = torch.nn.Embedding(vocab_size, pred_n_hidden)
 
-        layers = torch.nn.ModuleDict(
+        return torch.nn.ModuleDict(
             {
                 "embed": embed,
                 "dec_rnn": rnn.rnn(
@@ -302,7 +301,6 @@ class RNNTDecoder(rnnt_abstract.AbstractRNNTDecoder):
                 ),
             }
         )
-        return layers
 
     def initialize_state(self, y: torch.Tensor) -> List[torch.Tensor]:
         """
@@ -318,18 +316,41 @@ class RNNTDecoder(rnnt_abstract.AbstractRNNTDecoder):
                 H = Hidden size of RNN.
         """
         batch = y.size(0)
-        if self.random_state_sampling and self.training:
-            state = [
-                torch.randn(self.pred_rnn_layers, batch, self.pred_hidden, dtype=y.dtype, device=y.device),
-                torch.randn(self.pred_rnn_layers, batch, self.pred_hidden, dtype=y.dtype, device=y.device),
+        return (
+            [
+                torch.randn(
+                    self.pred_rnn_layers,
+                    batch,
+                    self.pred_hidden,
+                    dtype=y.dtype,
+                    device=y.device,
+                ),
+                torch.randn(
+                    self.pred_rnn_layers,
+                    batch,
+                    self.pred_hidden,
+                    dtype=y.dtype,
+                    device=y.device,
+                ),
             ]
-
-        else:
-            state = [
-                torch.zeros(self.pred_rnn_layers, batch, self.pred_hidden, dtype=y.dtype, device=y.device),
-                torch.zeros(self.pred_rnn_layers, batch, self.pred_hidden, dtype=y.dtype, device=y.device),
+            if self.random_state_sampling and self.training
+            else [
+                torch.zeros(
+                    self.pred_rnn_layers,
+                    batch,
+                    self.pred_hidden,
+                    dtype=y.dtype,
+                    device=y.device,
+                ),
+                torch.zeros(
+                    self.pred_rnn_layers,
+                    batch,
+                    self.pred_hidden,
+                    dtype=y.dtype,
+                    device=y.device,
+                ),
             ]
-        return state
+        )
 
     def score_hypothesis(
         self, hypothesis: rnnt_utils.Hypothesis, cache: Dict[Tuple[int], Any]
@@ -355,11 +376,10 @@ class RNNTDecoder(rnnt_abstract.AbstractRNNTDecoder):
             device = _p.device
 
         # parse "blank" tokens in hypothesis
-        if len(hypothesis.y_sequence) > 0 and hypothesis.y_sequence[-1] == self.blank_idx:
-            blank_state = True
-        else:
-            blank_state = False
-
+        blank_state = (
+            len(hypothesis.y_sequence) > 0
+            and hypothesis.y_sequence[-1] == self.blank_idx
+        )
         # Convert last token of hypothesis to torch.Tensor
         target = torch.full([1, 1], fill_value=hypothesis.y_sequence[-1], device=device, dtype=torch.long)
         lm_token = target[:, -1]  # [1]
@@ -501,8 +521,8 @@ class RNNTDecoder(rnnt_abstract.AbstractRNNTDecoder):
                 ([L x (1, H)], [L x (1, H)])
         """
         state_list = []
-        for state_id in range(len(batch_states)):
-            states = [batch_states[state_id][layer][idx] for layer in range(self.pred_rnn_layers)]
+        for batch_state in batch_states:
+            states = [batch_state[layer][idx] for layer in range(self.pred_rnn_layers)]
             state_list.append(states)
 
         return state_list
@@ -685,9 +705,7 @@ class RNNTJoint(rnnt_abstract.AbstractRNNTJoint):
                     "decoder_outputs can only be None for fused step!"
                 )
 
-            out = self.joint(encoder_outputs, decoder_outputs)  # [B, T, U, V + 1]
-            return out
-
+            return self.joint(encoder_outputs, decoder_outputs)
         else:
             # At least the loss module must be supplied during fused joint
             if self._loss is None or self._wer is None:
@@ -781,11 +799,7 @@ class RNNTJoint(rnnt_abstract.AbstractRNNTJoint):
                     sub_transcripts = sub_transcripts.detach()
 
                     original_log_prediction = self.wer.log_prediction
-                    if batch_idx == 0:
-                        self.wer.log_prediction = True
-                    else:
-                        self.wer.log_prediction = False
-
+                    self.wer.log_prediction = batch_idx == 0
                     # Compute the wer (with logging for just 1st sub-batch)
                     self.wer.update(sub_enc, sub_enc_lens, sub_transcripts, sub_transcript_lens)
                     wer, wer_num, wer_denom = self.wer.compute()
@@ -872,13 +886,13 @@ class RNNTJoint(rnnt_abstract.AbstractRNNTJoint):
             torch.cuda.empty_cache()
 
         # If log_softmax is automatic
-        if self.log_softmax is None:
-            if not res.is_cuda:  # Use log softmax only if on CPU
-                res = res.log_softmax(dim=-1)
-        else:
-            if self.log_softmax:
-                res = res.log_softmax(dim=-1)
-
+        if (
+            self.log_softmax is None
+            and not res.is_cuda
+            or self.log_softmax is not None
+            and self.log_softmax
+        ):  # Use log softmax only if on CPU
+            res = res.log_softmax(dim=-1)
         return res
 
     def _joint_net(self, num_classes, pred_n_hidden, enc_n_hidden, joint_n_hidden, activation, dropout):

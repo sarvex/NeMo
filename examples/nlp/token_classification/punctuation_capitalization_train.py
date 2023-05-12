@@ -77,23 +77,21 @@ def main(cfg: DictConfig) -> None:
                 f'Provide path to the pre-trained .nemo file or choose from {PunctuationCapitalizationModel.list_available_models()}'
             )
 
-        data_dir = cfg.model.dataset.get('data_dir', None)
-        if data_dir:
-            if not os.path.exists(data_dir):
-                raise ValueError(f'{data_dir} is not found at')
-
-            # we can also do finetuning of the pretrained model but we would need to update the data dir
-            model.update_data_dir(data_dir)
-            # setup train and validation Pytorch DataLoaders
-            model.setup_training_data()
-            model.setup_validation_data()
-            logging.info(f'Using config file of the pretrained model')
-        else:
+        if not (data_dir := cfg.model.dataset.get('data_dir', None)):
             raise ValueError(
                 'Specify a valid dataset directory that contains test_ds.text_file and test_ds.labels_file \
                 with "model.dataset.data_dir" argument'
             )
 
+        if not os.path.exists(data_dir):
+            raise ValueError(f'{data_dir} is not found at')
+
+        # we can also do finetuning of the pretrained model but we would need to update the data dir
+        model.update_data_dir(data_dir)
+        # setup train and validation Pytorch DataLoaders
+        model.setup_training_data()
+        model.setup_validation_data()
+        logging.info('Using config file of the pretrained model')
     trainer.fit(model)
 
 

@@ -80,7 +80,7 @@ class ConformerEncoder(NeuralModule, Exportable):
         """
         input_example = torch.randn(16, self._feat_in, 256).to(next(self.parameters()).device)
         input_example_length = torch.randint(0, 256, (16,)).to(next(self.parameters()).device)
-        return tuple([input_example, input_example_length])
+        return input_example, input_example_length
 
     @property
     def input_types(self):
@@ -131,16 +131,8 @@ class ConformerEncoder(NeuralModule, Exportable):
         self.d_model = d_model
         self._feat_in = feat_in
         self.scale = math.sqrt(self.d_model)
-        if att_context_size:
-            self.att_context_size = att_context_size
-        else:
-            self.att_context_size = [-1, -1]
-
-        if xscaling:
-            self.xscale = math.sqrt(d_model)
-        else:
-            self.xscale = None
-
+        self.att_context_size = att_context_size if att_context_size else [-1, -1]
+        self.xscale = math.sqrt(d_model) if xscaling else None
         if subsampling_conv_channels == -1:
             subsampling_conv_channels = d_model
         if subsampling and subsampling_factor > 1:
@@ -185,7 +177,7 @@ class ConformerEncoder(NeuralModule, Exportable):
             raise ValueError(f"Not valid self_attention_model: '{self_attention_model}'!")
 
         self.layers = nn.ModuleList()
-        for i in range(n_layers):
+        for _ in range(n_layers):
             layer = ConformerLayer(
                 d_model=d_model,
                 d_ff=d_ff,
@@ -231,7 +223,7 @@ class ConformerEncoder(NeuralModule, Exportable):
         att_mask = ~att_mask
         pad_mask = ~pad_mask
 
-        for lth, layer in enumerate(self.layers):
+        for layer in self.layers:
             audio_signal = layer(x=audio_signal, att_mask=att_mask, pos_emb=pos_emb, pad_mask=pad_mask)
 
         if self.out_proj is not None:

@@ -72,7 +72,7 @@ def get_char_dataset(config: dict, augmentor: Optional['AudioAugmentor'] = None)
     Returns:
         An instance of AudioToCharDataset.
     """
-    dataset = audio_to_text.AudioToCharDataset(
+    return audio_to_text.AudioToCharDataset(
         manifest_filepath=config['manifest_filepath'],
         labels=config['labels'],
         sample_rate=config['sample_rate'],
@@ -87,7 +87,6 @@ def get_char_dataset(config: dict, augmentor: Optional['AudioAugmentor'] = None)
         trim=config.get('trim_silence', False),
         parser=config.get('parser', 'en'),
     )
-    return dataset
 
 
 def get_bpe_dataset(
@@ -104,7 +103,7 @@ def get_bpe_dataset(
     Returns:
         An instance of AudioToBPEDataset.
     """
-    dataset = audio_to_text.AudioToBPEDataset(
+    return audio_to_text.AudioToBPEDataset(
         manifest_filepath=config['manifest_filepath'],
         tokenizer=tokenizer,
         sample_rate=config['sample_rate'],
@@ -116,7 +115,6 @@ def get_bpe_dataset(
         trim=config.get('trim_silence', False),
         use_start_end_token=config.get('use_start_end_token', True),
     )
-    return dataset
 
 
 def get_tarred_char_dataset(
@@ -136,7 +134,7 @@ def get_tarred_char_dataset(
     Returns:
         An instance of TarredAudioToCharDataset.
     """
-    dataset = audio_to_text.TarredAudioToCharDataset(
+    return audio_to_text.TarredAudioToCharDataset(
         audio_tar_filepaths=config['tarred_audio_filepaths'],
         manifest_filepath=config['manifest_filepath'],
         labels=config['labels'],
@@ -156,7 +154,6 @@ def get_tarred_char_dataset(
         global_rank=global_rank,
         world_size=world_size,
     )
-    return dataset
 
 
 def get_tarred_bpe_dataset(
@@ -182,7 +179,7 @@ def get_tarred_bpe_dataset(
     Returns:
         An instance of TarredAudioToBPEDataset.
     """
-    dataset = audio_to_text.TarredAudioToBPEDataset(
+    return audio_to_text.TarredAudioToBPEDataset(
         audio_tar_filepaths=config['tarred_audio_filepaths'],
         manifest_filepath=config['manifest_filepath'],
         tokenizer=tokenizer,
@@ -199,7 +196,6 @@ def get_tarred_bpe_dataset(
         global_rank=global_rank,
         world_size=world_size,
     )
-    return dataset
 
 
 def get_dali_char_dataset(
@@ -225,7 +221,7 @@ def get_dali_char_dataset(
         An instance of AudioToCharDALIDataset.
     """
     device = 'gpu' if torch.cuda.is_available() else 'cpu'
-    dataset = audio_to_text_dali.AudioToCharDALIDataset(
+    return audio_to_text_dali.AudioToCharDALIDataset(
         manifest_filepath=config['manifest_filepath'],
         device=device,
         batch_size=config['batch_size'],
@@ -244,4 +240,3 @@ def get_dali_char_dataset(
         world_size=world_size,
         preprocessor_cfg=preprocessor_cfg,
     )
-    return dataset

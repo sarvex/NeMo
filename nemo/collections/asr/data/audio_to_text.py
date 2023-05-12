@@ -52,10 +52,8 @@ def _speech_collate_fn(batch, pad_id):
                assumes the signals are 1d torch tensors (i.e. mono audio).
     """
     _, audio_lengths, _, tokens_lengths = zip(*batch)
-    max_audio_len = 0
     has_audio = audio_lengths[0] is not None
-    if has_audio:
-        max_audio_len = max(audio_lengths).item()
+    max_audio_len = max(audio_lengths).item() if has_audio else 0
     max_tokens_len = max(tokens_lengths).item()
 
     audio_signal, tokens = [], []
@@ -170,9 +168,7 @@ class _AudioTextDataset(Dataset):
             t = t + [self.eos_id]
             tl += 1
 
-        output = f, fl, torch.tensor(t).long(), torch.tensor(tl).long()
-
-        return output
+        return f, fl, torch.tensor(t).long(), torch.tensor(tl).long()
 
     def __len__(self):
         return len(self.collection)
@@ -445,9 +441,7 @@ class AudioToCharWithDursF0Dataset(AudioToCharDataset):
         max_length = max_length or torch.max(lengths)
         start = torch.tensor(0).int()
         indices = torch.arange(start=start, end=max_length, device=device)  # noqa
-        mask = indices.lt(lengths.view(-1, 1))
-
-        return mask
+        return indices.lt(lengths.view(-1, 1))
 
     @staticmethod
     def interleave(x, y):
@@ -582,8 +576,8 @@ class AudioToCharWithPriorDataset(AudioToCharDataset):
 
         attn_prior = torch.zeros(
             len(attn_prior_list),
-            max([attn_prior_i.shape[0] for attn_prior_i in attn_prior_list]),
-            max([attn_prior_i.shape[1] for attn_prior_i in attn_prior_list]),
+            max(attn_prior_i.shape[0] for attn_prior_i in attn_prior_list),
+            max(attn_prior_i.shape[1] for attn_prior_i in attn_prior_list),
         )
 
         for i, attn_prior_i in enumerate(attn_prior_list):
@@ -644,7 +638,9 @@ class AudioToCharWithPriorAndPitchDataset(AudioToCharWithPriorDataset):
         audio, audio_len, text, text_len, attn_prior = super()._collate_fn(list(zip(*batch[:5])))
         pitch_list = batch[5]
 
-        pitch = torch.zeros(len(pitch_list), max([pitch.shape[0] for pitch in pitch_list]))
+        pitch = torch.zeros(
+            len(pitch_list), max(pitch.shape[0] for pitch in pitch_list)
+        )
 
         for i, pitch_i in enumerate(pitch_list):
             pitch[i, : pitch_i.shape[0]] = pitch_i
@@ -778,18 +774,16 @@ class AudioToBPEDataset(_AudioTextDataset):
         else:
             eos_id = None
 
-        if hasattr(tokenizer, 'pad_token'):
-            pad_id = tokenizer.pad_id
-        else:
-            pad_id = 0
+        pad_id = tokenizer.pad_id if hasattr(tokenizer, 'pad_token') else 0
+
 
         class TokenizerWrapper:
             def __init__(self, tokenizer):
                 self._tokenizer = tokenizer
 
             def __call__(self, text):
-                t = self._tokenizer.text_to_ids(text)
-                return t
+                return self._tokenizer.text_to_ids(text)
+
 
         super().__init__(
             manifest_filepath=manifest_filepath,
@@ -952,7 +946,10 @@ class _TarredAudioToTextDataset(IterableDataset):
                 # Brace expand
                 audio_tar_filepaths = list(braceexpand.braceexpand(audio_tar_filepaths))
 
-            if shard_strategy == 'scatter':
+            if shard_strategy == 'replicate':
+                logging.info("All tarred dataset shards will be replicated across all nodes.")
+
+            elif shard_strategy == 'scatter':
                 logging.info("All tarred dataset shards will be scattered evenly across all nodes.")
 
                 if len(audio_tar_filepaths) % world_size != 0:
@@ -967,9 +964,6 @@ class _TarredAudioToTextDataset(IterableDataset):
                 logging.info(
                     "Partitioning tarred dataset: process (%d) taking shards [%d, %d)", global_rank, begin_idx, end_idx
                 )
-
-            elif shard_strategy == 'replicate':
-                logging.info("All tarred dataset shards will be replicated across all nodes.")
 
             else:
                 raise ValueError(f"Invalid shard strategy ! Allowed values are : {valid_shard_strategies}")
@@ -1296,18 +1290,16 @@ class TarredAudioToBPEDataset(_TarredAudioToTextDataset):
         else:
             eos_id = None
 
-        if hasattr(tokenizer, 'pad_token'):
-            pad_id = tokenizer.pad_id
-        else:
-            pad_id = 0
+        pad_id = tokenizer.pad_id if hasattr(tokenizer, 'pad_token') else 0
+
 
         class TokenizerWrapper:
             def __init__(self, tokenizer):
                 self._tokenizer = tokenizer
 
             def __call__(self, text):
-                t = self._tokenizer.text_to_ids(text)
-                return t
+                return self._tokenizer.text_to_ids(text)
+
 
         super().__init__(
             audio_tar_filepaths=audio_tar_filepaths,

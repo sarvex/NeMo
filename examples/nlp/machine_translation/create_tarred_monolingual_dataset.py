@@ -46,7 +46,7 @@ if __name__ == '__main__':
     if not os.path.exists(args.out_dir):
         os.mkdir(args.out_dir)
     if not os.path.exists(args.tokenizer_model):
-        assert FileNotFoundError("Could not find tokenizer model %s" % (args.tokenizer))
+        assert FileNotFoundError(f"Could not find tokenizer model {args.tokenizer}")
 
     tokenizer_model = MTDataPreproc.get_monolingual_tokenizer(
         tokenizer_name=args.tokenizer_name, tokenizer_model=args.tokenizer_model, bpe_dropout=args.bpe_droput

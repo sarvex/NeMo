@@ -84,12 +84,7 @@ class DataProcessor(object):
         """Reads a tab separated value file."""
         with open(input_file, "r", encoding="utf-8-sig") as f:
             reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
-            lines = []
-            for line in reader:
-                # if sys.version_info[0] == 2:
-                #     line = list(unicode(cell, 'utf-8') for cell in line)
-                lines.append(line)
-            return lines
+            return list(reader)
 
 
 def normalize_answer(s):
@@ -126,14 +121,12 @@ def get_label_stats(labels, outfile='stats.tsv', verbose=True):
     labels = Counter(labels)
     total = sum(labels.values())
     out = open(outfile, 'w')
-    i = 0
     freq_dict = {}
     label_frequencies = labels.most_common()
-    for k, v in label_frequencies:
+    for i, (k, v) in enumerate(label_frequencies):
         out.write(f'{k}\t\t{round(v/total,5)}\t\t{v}\n')
         if verbose and i < 3:
             logging.info(f'label: {k}, {v} out of {total} ({(v / total)*100.0:.2f}%).')
-        i += 1
         freq_dict[k] = v
 
     return total, freq_dict, max(labels.keys())
@@ -166,17 +159,16 @@ def write_files(data, outfile):
 
 
 def write_data(data, slot_dict, intent_dict, outfold, mode, uncased):
-    intent_file = open(f'{outfold}/{mode}.tsv', 'w')
-    intent_file.write('sentence\tlabel\n')
-    slot_file = open(f'{outfold}/{mode}_slots.tsv', 'w')
-    for tokens, slots, intent in data:
-        text = ' '.join(tokens)
-        if uncased:
-            text = text.lower()
-        intent_file.write(f'{text}\t{intent_dict[intent]}\n')
-        slots = [str(slot_dict[slot]) for slot in slots]
-        slot_file.write(' '.join(slots) + '\n')
-    intent_file.close()
+    with open(f'{outfold}/{mode}.tsv', 'w') as intent_file:
+        intent_file.write('sentence\tlabel\n')
+        slot_file = open(f'{outfold}/{mode}_slots.tsv', 'w')
+        for tokens, slots, intent in data:
+            text = ' '.join(tokens)
+            if uncased:
+                text = text.lower()
+            intent_file.write(f'{text}\t{intent_dict[intent]}\n')
+            slots = [str(slot_dict[slot]) for slot in slots]
+            slot_file.write(' '.join(slots) + '\n')
     slot_file.close()
 
 
@@ -196,8 +188,7 @@ def read_csv(file_path):
     rows = []
     with open(file_path, 'r') as csvfile:
         read_csv = csv.reader(csvfile, delimiter=',')
-        for row in read_csv:
-            rows.append(row)
+        rows.extend(iter(read_csv))
     return rows
 
 
@@ -252,7 +243,7 @@ def get_entities(files):
 
 
 def get_data(files):
-    all_data, all_slots, all_intents = [], set(['O']), set()
+    all_data, all_slots, all_intents = [], {'O'}, set()
     for file in files:
         file_data = []
         with open(file, 'r') as json_file:
@@ -309,9 +300,7 @@ def get_stats(lengths):
 
 
 def is_whitespace(c):
-    if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
-        return True
-    return False
+    return c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F
 
 
 def write_vocab(items, outfile):
@@ -335,21 +324,17 @@ def get_labels_to_labels_id_mapping(file):
     '''
     lines = open(file, 'r').readlines()
     lines = [line.strip() for line in lines if line.strip()]
-    label_ids = {lines[i]: i for i in range(len(lines))}
-    return label_ids
+    return {lines[i]: i for i in range(len(lines))}
 
 
 def if_exist(outfold, files):
     if not os.path.exists(outfold):
         return False
-    for file in files:
-        if not os.path.exists(f'{outfold}/{file}'):
-            return False
-    return True
+    return all(os.path.exists(f'{outfold}/{file}') for file in files)
 
 
 def remove_punctuation_from_sentence(sentence):
-    sentence = re.sub('[' + string.punctuation + ']', '', sentence)
+    sentence = re.sub(f'[{string.punctuation}]', '', sentence)
     sentence = sentence.lower()
     return sentence
 
@@ -371,7 +356,7 @@ def dataset_to_ids(dataset, tokenizer, cache_ids=False, add_bos_eos=True, cache_
         ids: list of ids which correspond to tokenized strings of the dataset
     """
 
-    cached_ids_dataset = dataset + str(".pkl")
+    cached_ids_dataset = f"{dataset}.pkl"
     if use_cache and os.path.isfile(cached_ids_dataset):
         logging.info("Loading cached tokenized dataset ...")
         ids = pickle.load(open(cached_ids_dataset, "rb"))
@@ -398,11 +383,11 @@ def get_freq_weights(label_freq):
     so as to match the ones with the higher frequencies. We achieve this by
     dividing the total frequency by the freq of each label to calculate its weight.
     """
-    total_size = 0
-    for lf in label_freq.values():
-        total_size += lf
-    weighted_slots = {label: (total_size / (len(label_freq) * freq)) for label, freq in label_freq.items()}
-    return weighted_slots
+    total_size = sum(label_freq.values())
+    return {
+        label: (total_size / (len(label_freq) * freq))
+        for label, freq in label_freq.items()
+    }
 
 
 def fill_class_weights(weights, max_id=-1):
@@ -431,8 +416,7 @@ def fill_class_weights(weights, max_id=-1):
 def get_vocab(file):
     lines = open(file, 'r').readlines()
     lines = [line.strip() for line in lines if line.strip()]
-    labels = {i: lines[i] for i in range(len(lines))}
-    return labels
+    return {i: lines[i] for i in range(len(lines))}
 
 
 def find_newlines(contents):

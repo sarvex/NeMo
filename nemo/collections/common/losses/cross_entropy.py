@@ -75,8 +75,7 @@ class CrossEntropyLoss(nn.CrossEntropyLoss, Serialization, Typing):
         if len(labels_flatten) == 0:
             return super().forward(logits, torch.argmax(logits, dim=-1))
 
-        loss = super().forward(logits_flatten, labels_flatten)
-        return loss
+        return super().forward(logits_flatten, labels_flatten)
 
 
 class NLLLoss(nn.NLLLoss, Serialization, Typing):
@@ -134,5 +133,4 @@ class NLLLoss(nn.NLLLoss, Serialization, Typing):
         if len(labels_flatten) == 0:
             return super().forward(log_probs, torch.argmax(log_probs, dim=-1))
 
-        loss = super().forward(log_probs_flatten, labels_flatten)
-        return loss
+        return super().forward(log_probs_flatten, labels_flatten)

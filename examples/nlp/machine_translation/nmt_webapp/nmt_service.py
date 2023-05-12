@@ -47,18 +47,22 @@ def initialize(config_file_path: str):
     with open(config_file_path) as f:
         __MODELS_DICT = json.load(f)
 
-    if __MODELS_DICT is not None:
-        for key, value in __MODELS_DICT.items():
-            logging.info(f"Loading model for {key} from file: {value}")
-            if value.startswith("NGC/"):
-                model = nemo_nlp.models.machine_translation.MTEncDecModel.from_pretrained(model_name=value[4:])
-            else:
-                model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(restore_path=value)
-            if torch.cuda.is_available():
-                model = model.cuda()
-            MODELS_DICT[key] = model
-    else:
+    if __MODELS_DICT is None:
         raise ValueError("Did not find the config.json or it was empty")
+    for key, value in __MODELS_DICT.items():
+        logging.info(f"Loading model for {key} from file: {value}")
+        model = (
+            nemo_nlp.models.machine_translation.MTEncDecModel.from_pretrained(
+                model_name=value[4:]
+            )
+            if value.startswith("NGC/")
+            else nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(
+                restore_path=value
+            )
+        )
+        if torch.cuda.is_available():
+            model = model.cuda()
+        MODELS_DICT[key] = model
     logging.info("NMT service started")
 
 

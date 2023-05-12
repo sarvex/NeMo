@@ -51,7 +51,4 @@ class EnJaProcessor:
     def normalize(self, text) -> str:
         # Normalization doesn't handle Japanese periods correctly;
         # '。'becomes '.'.
-        if self.lang_id == 'en':
-            return self.normalizer.normalize(text)
-        else:
-            return text
+        return self.normalizer.normalize(text) if self.lang_id == 'en' else text

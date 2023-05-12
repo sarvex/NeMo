@@ -112,14 +112,14 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         model_path = self._cfg.diarizer.speaker_embeddings.model_path
         if model_path is not None and model_path.endswith('.nemo'):
             self._speaker_model = ExtractSpeakerEmbeddingsModel.restore_from(model_path)
-            logging.info("Speaker Model restored locally from {}".format(model_path))
+            logging.info(f"Speaker Model restored locally from {model_path}")
         else:
             if model_path not in get_available_model_names(ExtractSpeakerEmbeddingsModel):
                 logging.warning(
-                    "requested {} model name not available in pretrained models, instead".format(model_path)
+                    f"requested {model_path} model name not available in pretrained models, instead"
                 )
                 model_path = "speakerdiarization_speakernet"
-            logging.info("Loading pretrained {} model from NGC".format(model_path))
+            logging.info(f"Loading pretrained {model_path} model from NGC")
             self._speaker_model = ExtractSpeakerEmbeddingsModel.from_pretrained(model_name=model_path)
 
         self._speaker_dir = os.path.join(self._out_dir, 'speaker_outputs')
@@ -133,14 +133,14 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         model_path = self._cfg.diarizer.vad.model_path
         if model_path.endswith('.nemo'):
             self._vad_model = EncDecClassificationModel.restore_from(model_path)
-            logging.info("VAD model loaded locally from {}".format(model_path))
+            logging.info(f"VAD model loaded locally from {model_path}")
         else:
             if model_path not in get_available_model_names(EncDecClassificationModel):
                 logging.warning(
-                    "requested {} model name not available in pretrained models, instead".format(model_path)
+                    f"requested {model_path} model name not available in pretrained models, instead"
                 )
                 model_path = "vad_telephony_marblenet"
-            logging.info("Loading pretrained {} model from NGC".format(model_path))
+            logging.info(f"Loading pretrained {model_path} model from NGC")
             self._vad_model = EncDecClassificationModel.from_pretrained(model_name=model_path)
 
         self._vad_window_length_in_sec = self._cfg.diarizer.vad.window_length_in_sec
@@ -181,7 +181,7 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         self._vad_model.eval()
 
         time_unit = int(self._vad_window_length_in_sec / self._vad_shift_length_in_sec)
-        trunc = int(time_unit / 2)
+        trunc = time_unit // 2
         trunc_l = time_unit - trunc
         all_len = 0
         data = []
@@ -205,12 +205,12 @@ class ClusteringDiarizer(Model, DiarizationMixin):
                 else:
                     to_save = pred
                 all_len += len(to_save)
-                outpath = os.path.join(self._vad_dir, data[i] + ".frame")
+                outpath = os.path.join(self._vad_dir, f"{data[i]}.frame")
                 with open(outpath, "a") as fout:
                     for f in range(len(to_save)):
                         fout.write('{0:0.4f}\n'.format(to_save[f]))
             del test_batch
-            if status[i] == 'end' or status[i] == 'single':
+            if status[i] in ['end', 'single']:
                 all_len = 0
 
         if not self._cfg.diarizer.vad.vad_decision_smoothing:
@@ -239,7 +239,10 @@ class ClusteringDiarizer(Model, DiarizationMixin):
             num_workers=self._cfg.num_workers,
         )
 
-        vad_table_list = [os.path.join(table_out_dir, key + ".txt") for key in self.AUDIO_RTTM_MAP]
+        vad_table_list = [
+            os.path.join(table_out_dir, f"{key}.txt")
+            for key in self.AUDIO_RTTM_MAP
+        ]
         write_rttm2manifest(self._cfg.diarizer.paths2audio_files, vad_table_list, self._vad_out_file)
         self._speaker_manifest_path = self._vad_out_file
 
@@ -251,7 +254,7 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         self._speaker_model = self._speaker_model.to(self._device)
         self._speaker_model.eval()
         with open(manifest_file, 'r') as manifest:
-            for line in manifest.readlines():
+            for line in manifest:
                 line = line.strip()
                 dic = json.loads(line)
                 uniq_names.append(dic['audio_filepath'].split('/')[-1].rsplit('.', 1)[0])
@@ -274,9 +277,9 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         prefix = manifest_file.split('/')[-1].rsplit('.', 1)[-2]
 
         name = os.path.join(embedding_dir, prefix)
-        self._embeddings_file = name + '_embeddings.pkl'
+        self._embeddings_file = f'{name}_embeddings.pkl'
         pkl.dump(out_embeddings, open(self._embeddings_file, 'wb'))
-        logging.info("Saved embedding files to {}".format(embedding_dir))
+        logging.info(f"Saved embedding files to {embedding_dir}")
 
     def path2audio_files_to_manifest(self, paths2audio_files):
         mfst_file = os.path.join(self._out_dir, 'manifest.json')
@@ -294,16 +297,15 @@ class ClusteringDiarizer(Model, DiarizationMixin):
 
         if paths2audio_files:
             self.paths2audio_files = paths2audio_files
+        elif self._cfg.diarizer.paths2audio_files is None:
+            raise ValueError("Pass path2audio files either through config or to diarize method")
         else:
-            if self._cfg.diarizer.paths2audio_files is None:
-                raise ValueError("Pass path2audio files either through config or to diarize method")
-            else:
-                self.paths2audio_files = self._cfg.diarizer.paths2audio_files
+            self.paths2audio_files = self._cfg.diarizer.paths2audio_files
 
         if type(self.paths2audio_files) is str and os.path.isfile(self.paths2audio_files):
             paths2audio_files = []
             with open(self.paths2audio_files, 'r') as path2file:
-                for audiofile in path2file.readlines():
+                for audiofile in path2file:
                     audiofile = audiofile.strip()
                     paths2audio_files.append(audiofile)
 
@@ -322,7 +324,12 @@ class ClusteringDiarizer(Model, DiarizationMixin):
             self._split_duration = 50
             manifest_vad_input = mfst_file
 
-            if not self._dont_auto_split:
+            if self._dont_auto_split:
+                logging.warning(
+                    "If you encounter CUDA memory issue, try splitting manifest entry by split_duration to avoid it."
+                )
+
+            else:
                 logging.info("Split long audio file to avoid CUDA memory issue")
                 logging.debug("Try smaller split_duration if you still have CUDA memory issue")
                 config = {
@@ -332,16 +339,10 @@ class ClusteringDiarizer(Model, DiarizationMixin):
                     'num_workers': self._cfg.num_workers,
                 }
                 manifest_vad_input = prepare_manifest(config)
-            else:
-                logging.warning(
-                    "If you encounter CUDA memory issue, try splitting manifest entry by split_duration to avoid it."
-                )
-
             self._setup_vad_test_data(manifest_vad_input)
             self._run_vad(manifest_vad_input)
-        else:
-            if not os.path.exists(self._speaker_manifest_path):
-                raise NotFoundError("Oracle VAD based manifest file not found")
+        elif not os.path.exists(self._speaker_manifest_path):
+            raise NotFoundError("Oracle VAD based manifest file not found")
 
         self._extract_embeddings(self._speaker_manifest_path)
         out_rttm_dir = os.path.join(self._out_dir, 'pred_rttms')

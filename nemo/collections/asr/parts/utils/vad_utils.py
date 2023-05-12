@@ -40,9 +40,7 @@ def prepare_manifest(config):
     manifest_vad_input = config.get('manifest_vad_input', "manifest_vad_input.json")
     input_audios = []
     with open(config['manifest_filepath'], 'r') as manifest:
-        for line in manifest.readlines():
-            input_audios.append(json.loads(line.strip()))
-
+        input_audios.extend(json.loads(line.strip()) for line in manifest)
     p = Pool(processes=config['num_workers'])
     args_func = {
         'label': 'infer',
@@ -103,11 +101,7 @@ def write_vad_infer_manifest(file, args_func):
                 offset_inc = left
                 left = 0
             else:
-                if status == 'start' or status == 'next':
-                    status = 'next'
-                else:
-                    status = 'start'
-
+                status = 'next' if status in ['start', 'next'] else 'start'
                 if status == 'start':
                     write_duration = split_duration
                     offset_inc = split_duration
@@ -154,15 +148,14 @@ def get_vad_stream_status(data):
             status[i] = 'start' if data[i] == data[i + 1] else 'single'
         elif i == len(data) - 1:
             status[i] = 'end' if data[i] == data[i - 1] else 'single'
+        elif data[i] != data[i - 1] and data[i] == data[i + 1]:
+            status[i] = 'start'
+        elif data[i] == data[i - 1] and data[i] == data[i + 1]:
+            status[i] = 'next'
+        elif data[i] == data[i - 1]:
+            status[i] = 'end'
         else:
-            if data[i] != data[i - 1] and data[i] == data[i + 1]:
-                status[i] = 'start'
-            elif data[i] == data[i - 1] and data[i] == data[i + 1]:
-                status[i] = 'next'
-            elif data[i] == data[i - 1] and data[i] != data[i + 1]:
-                status[i] = 'end'
-            else:
-                status[i] = 'single'
+            status[i] = 'single'
     return status
 
 
@@ -224,7 +217,7 @@ def generate_overlap_vad_seq_per_file(frame_filepath, per_args):
         seg = int((seg_len / 0.01 + 1))  # number of units of each window/segment
 
         jump_on_target = int(seg * (1 - overlap))  # jump on target generated sequence
-        jump_on_frame = int(jump_on_target / shift)  # jump on input frame sequence
+        jump_on_frame = jump_on_target // shift
 
         if jump_on_frame < 1:
             raise ValueError(
@@ -300,7 +293,7 @@ def generate_vad_segment_table(vad_pred_dir, threshold, shift_len, num_workers):
     suffixes = ("frame", "mean", "median")
     vad_pred_filepath_list = [os.path.join(vad_pred_dir, x) for x in os.listdir(vad_pred_dir) if x.endswith(suffixes)]
 
-    table_out_dir = os.path.join(vad_pred_dir, "table_output_" + str(threshold))
+    table_out_dir = os.path.join(vad_pred_dir, f"table_output_{str(threshold)}")
     if not os.path.exists(table_out_dir):
         os.mkdir(table_out_dir)
 
@@ -415,9 +408,11 @@ def vad_tune_threshold_on_dev(thresholds, vad_pred, groundtruth_RTTM, vad_pred_m
             groundtruth_RTTM_file = groundtruth_RTTM_dict[filename]
 
             if os.path.isdir(vad_pred):
-                table_out_dir = os.path.join(vad_pred, "table_output_" + str(threshold))
+                table_out_dir = os.path.join(vad_pred, f"table_output_{str(threshold)}")
             else:
-                table_out_dir = os.path.join("tmp_table_outputs", "table_output_" + str(threshold))
+                table_out_dir = os.path.join(
+                    "tmp_table_outputs", f"table_output_{str(threshold)}"
+                )
 
             if not os.path.exists(table_out_dir):
                 os.makedirs(table_out_dir)

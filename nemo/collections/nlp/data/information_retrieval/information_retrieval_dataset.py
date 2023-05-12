@@ -56,7 +56,7 @@ class BaseInformationRetrievalDataset(Dataset):
             file: str, path to file with passages (documents)
             max_seq_length: maximum length of sequence in tokens
         """
-        cached_collection = file + ".npz"
+        cached_collection = f"{file}.npz"
         if os.path.isfile(cached_collection):
             dataset_npz = np.load(cached_collection)["data"]
         else:
@@ -81,7 +81,7 @@ class BaseInformationRetrievalDataset(Dataset):
             file: str, path to file with passages (documents)
             max_seq_length: maximum length of sequence in tokens
         """
-        cached_collection = file + ".pkl"
+        cached_collection = f"{file}.pkl"
         if os.path.isfile(cached_collection):
             dataset_dict = pickle.load(open(cached_collection, "rb"))
         else:
@@ -104,7 +104,7 @@ class BaseInformationRetrievalDataset(Dataset):
         Parse a single entry (line) of tsv file.
         """
         if "\t" not in line:
-            raise ValueError(f"Provided dataset does not have a form of tsv file")
+            raise ValueError("Provided dataset does not have a form of tsv file")
         id_, text = line.split("\t")
         token_ids = self.tokenizer.text_to_ids(text.strip())
         return int(id_), token_ids
@@ -262,9 +262,9 @@ class BertInformationRetrievalDataset(BaseInformationRetrievalDataset):
         """
         idx2psgs = {}
         idx = 0
-        for line in open(file, "r").readlines():
+        for line in open(file, "r"):
             if "\t" not in line:
-                raise ValueError(f"Provided dataset does not have a form of tsv file")
+                raise ValueError("Provided dataset does not have a form of tsv file")
             query_and_psgs = line.split("\t")
             query_and_psgs_ids = [int(id_) for id_ in query_and_psgs]
             query_and_rel_psg_ids, irrel_psgs_ids = query_and_psgs_ids[:2], query_and_psgs_ids[2:]

@@ -73,15 +73,13 @@ class CpuRNNT_index:
         self.batch_first = batch_first
 
     def __call__(self, t: int, u: int, v: Optional[int] = None):
-        # if indexing all the values of the vocabulary, then only t, u are provided
         if v is None:
             return t * self.U + u
+        # otherwise, t, u, v are provided to index particular value in the vocabulary.
+        if self.batch_first:
+            return (t * self.maxU + u) * self.alphabet_size + v
         else:
-            # otherwise, t, u, v are provided to index particular value in the vocabulary.
-            if self.batch_first:
-                return (t * self.maxU + u) * self.alphabet_size + v
-            else:
-                return (t * self.maxU + u) * self.minibatch * self.alphabet_size + v
+            return (t * self.maxU + u) * self.minibatch * self.alphabet_size + v
 
 
 class CpuRNNT_metadata:
@@ -242,8 +240,7 @@ class CPURNNT:
                     emit = alphas[idx(t, u - 1)] + log_probs[idx(t, u - 1) * 2 + 1]
                     alphas[idx(t, u)] = log_sum_exp(emit, no_emit)
 
-        loglike = alphas[idx(T - 1, U - 1)] + log_probs[idx(T - 1, U - 1) * 2]
-        return loglike
+        return alphas[idx(T - 1, U - 1)] + log_probs[idx(T - 1, U - 1) * 2]
 
     def compute_betas_and_grads(
         self,

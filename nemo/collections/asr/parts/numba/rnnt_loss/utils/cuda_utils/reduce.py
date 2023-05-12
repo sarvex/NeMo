@@ -108,11 +108,7 @@ def CTAReduce(tid: int, x, storage, count: int, R_opid: int):
         shuff = cuda.shfl_down_sync(0xFFFFFFFF, x, offset)
 
         if (tid + offset < count) and (tid < offset):
-            if R_opid == 0:
-                x = rnnt_helper.add(x, shuff)
-            else:
-                x = rnnt_helper.maximum(x, shuff)
-
+            x = rnnt_helper.add(x, shuff) if R_opid == 0 else rnnt_helper.maximum(x, shuff)
         offset = offset // 2
 
     return x
@@ -283,13 +279,12 @@ def ReduceHelper(
             If minus is set; calls _reduce_minus, else calls _reduce_rows kernel.
         stream: CUDA Stream.
     """
+    grid_size = num_cols
     if minus:
-        grid_size = num_cols
         # call kernel
         _reduce_minus[grid_size, CTA_REDUCE_SIZE, stream, 0](I_opid, R_opid, acts, output, num_rows)
 
     else:
-        grid_size = num_cols
         # call kernel
         _reduce_rows[grid_size, CTA_REDUCE_SIZE, stream, 0](I_opid, R_opid, acts, output, num_rows)
 

@@ -47,7 +47,7 @@ from pydub.exceptions import CouldntDecodeError
 from nemo.utils import logging
 
 available_formats = sf.available_formats()
-sf_supported_formats = ["." + i.lower() for i in available_formats.keys()]
+sf_supported_formats = [f".{i.lower()}" for i in available_formats.keys()]
 
 
 class AudioSegment(object):
@@ -84,9 +84,7 @@ class AudioSegment(object):
             return False
         if self._samples.shape != other._samples.shape:
             return False
-        if np.any(self.samples != other._samples):
-            return False
-        return True
+        return not np.any(self.samples != other._samples)
 
     def __ne__(self, other):
         """Return whether two objects are unequal."""
@@ -112,10 +110,8 @@ class AudioSegment(object):
         if samples.dtype in np.sctypes['int']:
             bits = np.iinfo(samples.dtype).bits
             float32_samples *= 1.0 / 2 ** (bits - 1)
-        elif samples.dtype in np.sctypes['float']:
-            pass
-        else:
-            raise TypeError("Unsupported sample type: %s." % samples.dtype)
+        elif samples.dtype not in np.sctypes['float']:
+            raise TypeError(f"Unsupported sample type: {samples.dtype}.")
         return float32_samples
 
     @classmethod

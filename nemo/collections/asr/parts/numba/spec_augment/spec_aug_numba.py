@@ -74,7 +74,7 @@ def spec_augment_kernel(
     # Compute the number of masks over time axis
     len_t = time_starts.shape[1]
     # For all samples in the batch, apply the time mask
-    for b_idx in range(0, x.shape[0], threads_per_block):
+    for _ in range(0, x.shape[0], threads_per_block):
         # Resolve the index of the batch (case where more masks than MAX_THREAD_BUFFER)
         bm_idx = bidx * threads_per_block + tid
 
@@ -87,12 +87,12 @@ def spec_augment_kernel(
                 t_width = time_widths[bm_idx, tidx]
 
                 # If block idx `t` >= start and < (start + width) of this time mask
-                if t >= t_start and t < (t_start + t_width):
-                    # Current block idx `t` < current seq length x_len[b]
-                    # This ensure that we mask only upto the length of that sample
-                    # Everything after that index is padded value so unnecessary to mask
-                    if t < x_len[bm_idx]:
-                        x[bm_idx, f, t] = mask_value
+                if (
+                    t >= t_start
+                    and t < (t_start + t_width)
+                    and t < x_len[bm_idx]
+                ):
+                    x[bm_idx, f, t] = mask_value
 
 
 def spec_augment_launch_heuristics(x: torch.Tensor, length: torch.Tensor):
@@ -110,13 +110,7 @@ def spec_augment_launch_heuristics(x: torch.Tensor, length: torch.Tensor):
     if not x.is_cuda:
         return False
 
-    if length is None:
-        return False
-
-    if x.shape[0] < 8:
-        return False
-
-    return True
+    return False if length is None else x.shape[0] >= 8
 
 
 def launch_spec_augment_kernel(
@@ -239,10 +233,10 @@ class SpecAugmentNumba(nn.Module, Typing):
 
         if isinstance(time_width, int):
             self.adaptive_temporal_width = False
-        else:
-            if time_width > 1.0 or time_width < 0.0:
-                raise ValueError('If `time_width` is a float value, must be in range [0, 1]')
+        elif time_width > 1.0 or time_width < 0.0:
+            raise ValueError('If `time_width` is a float value, must be in range [0, 1]')
 
+        else:
             self.adaptive_temporal_width = True
 
     @typecheck()
@@ -290,7 +284,7 @@ class SpecAugmentNumba(nn.Module, Typing):
             time_starts = torch.zeros([bs, 1], dtype=torch.int64, device=input_spec.device)
             time_lengths = torch.zeros([bs, 1], dtype=torch.int64, device=input_spec.device)
 
-        x = launch_spec_augment_kernel(
+        return launch_spec_augment_kernel(
             input_spec,
             length,
             freq_starts=freq_starts,
@@ -301,5 +295,3 @@ class SpecAugmentNumba(nn.Module, Typing):
             time_masks=self.time_masks,
             mask_value=self.mask_value,
         )
-
-        return x

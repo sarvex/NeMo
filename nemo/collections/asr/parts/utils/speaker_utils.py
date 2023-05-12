@@ -65,7 +65,6 @@ def audio_rttm_map(audio_file_list, rttm_file_list=None):
 
     assert len(audio_files) == len(rttm_files)
 
-    AUDIO_RTTM_MAP = {}
     rttm_dict = {}
     audio_dict = {}
     for audio_file, rttm_file in zip(audio_files, rttm_files):
@@ -78,10 +77,10 @@ def audio_rttm_map(audio_file_list, rttm_file_list=None):
         audio_dict[uniq_audio_name] = audio_file
         rttm_dict[uniq_rttm_name] = rttm_file
 
-    for key, value in audio_dict.items():
-
-        AUDIO_RTTM_MAP[key] = {'audio_path': audio_dict[key], 'rttm_path': rttm_dict[key]}
-
+    AUDIO_RTTM_MAP = {
+        key: {'audio_path': audio_dict[key], 'rttm_path': rttm_dict[key]}
+        for key in audio_dict
+    }
     assert len(rttm_dict.items()) == len(audio_dict.items())
 
     return AUDIO_RTTM_MAP
@@ -99,11 +98,11 @@ def get_contiguous_stamps(stamps):
         if float(end) > float(next_start):
             avg = str((float(next_start) + float(end)) / 2.0)
             lines[i + 1] = ' '.join([avg, next_end, next_speaker])
-            contiguous_stamps.append(start + " " + avg + " " + speaker)
+            contiguous_stamps.append(f"{start} {avg} {speaker}")
         else:
-            contiguous_stamps.append(start + " " + end + " " + speaker)
+            contiguous_stamps.append(f"{start} {end} {speaker}")
     start, end, speaker = lines[-1].split()
-    contiguous_stamps.append(start + " " + end + " " + speaker)
+    contiguous_stamps.append(f"{start} {end} {speaker}")
     return contiguous_stamps
 
 
@@ -119,10 +118,10 @@ def merge_stamps(lines):
         if float(end) == float(next_start) and speaker == next_speaker:
             stamps[i + 1] = ' '.join([start, next_end, next_speaker])
         else:
-            overlap_stamps.append(start + " " + end + " " + speaker)
+            overlap_stamps.append(f"{start} {end} {speaker}")
 
     start, end, speaker = stamps[-1].split()
-    overlap_stamps.append(start + " " + end + " " + speaker)
+    overlap_stamps.append(f"{start} {end} {speaker}")
 
     return overlap_stamps
 
@@ -144,7 +143,7 @@ def labels_to_rttmfile(labels, uniq_id, out_rttm_dir):
     """
     write rttm file with uniq_id name in out_rttm_dir with time_stamps in labels
     """
-    filename = os.path.join(out_rttm_dir, uniq_id + '.rttm')
+    filename = os.path.join(out_rttm_dir, f'{uniq_id}.rttm')
     with open(filename, 'w') as f:
         for line in labels:
             line = line.strip()
@@ -161,10 +160,10 @@ def rttm_to_labels(rttm_filename):
     """
     labels = []
     with open(rttm_filename, 'r') as f:
-        for line in f.readlines():
+        for line in f:
             rttm = line.strip().split()
             start, end, speaker = float(rttm[3]), float(rttm[4]) + float(rttm[3]), rttm[7]
-            labels.append('{} {} {}'.format(start, end, speaker))
+            labels.append(f'{start} {end} {speaker}')
     return labels
 
 
@@ -190,16 +189,18 @@ def get_time_stamps(embeddings_file, reco2num, manifest_path, sample_rate, windo
     embeddings = pkl.load(open(embeddings_file, 'rb'))
     all_uniq_files = list(embeddings.keys())
     num_files = len(all_uniq_files)
-    logging.info("Number of files to diarize: {}".format(num_files))
+    logging.info(f"Number of files to diarize: {num_files}")
     sample = all_uniq_files[0]
-    logging.info("sample '{}' embeddings shape is {}\n".format(sample, embeddings[sample][0].shape))
+    logging.info(
+        f"sample '{sample}' embeddings shape is {embeddings[sample][0].shape}\n"
+    )
 
     speakers = {}
     if isinstance(reco2num, int) or reco2num is None:
         for key in embeddings.keys():
             speakers[key] = reco2num
     elif isinstance(reco2num, str) and os.path.exists(reco2num):
-        for key in open(reco2num).readlines():
+        for key in open(reco2num):
             key = key.strip()
             wav_id, num = key.split()
             speakers[wav_id] = int(num)
@@ -208,7 +209,7 @@ def get_time_stamps(embeddings_file, reco2num, manifest_path, sample_rate, windo
 
     with open(manifest_path, 'r') as manifest:
         time_stamps = {}
-        for line in manifest.readlines():
+        for line in manifest:
             line = line.strip()
             line = json.loads(line)
             audio, offset, duration = line['audio_filepath'], line['offset'], line['duration']
@@ -221,8 +222,7 @@ def get_time_stamps(embeddings_file, reco2num, manifest_path, sample_rate, windo
             slices = 1 if base < 0 else base + 1
             for slice_id in range(slices):
                 end = start + window
-                if end > slice_end:
-                    end = slice_end
+                end = min(end, slice_end)
                 stamp = '{:.3f} {:.3f} '.format(start, end)
                 time_stamps[audio].append(stamp)
                 start = offset + (slice_id + 1) * shift
@@ -263,7 +263,7 @@ def perform_clustering(embeddings, time_stamps, speakers, audio_rttm_map, out_rt
         lines = time_stamps[uniq_key]
         assert len(cluster_labels) == len(lines)
         for idx, label in enumerate(cluster_labels):
-            tag = 'speaker_' + str(label)
+            tag = f'speaker_{str(label)}'
             lines[idx] += tag
 
         a = get_contiguous_stamps(lines)
@@ -369,34 +369,32 @@ def write_rttm2manifest(paths2audio_files, paths2rttm_files, manifest_file):
 
     with open(manifest_file, 'w') as outfile:
         for key in AUDIO_RTTM_MAP:
-            f = open(AUDIO_RTTM_MAP[key]['rttm_path'], 'r')
-            audio_path = AUDIO_RTTM_MAP[key]['audio_path']
-            lines = f.readlines()
-            time_tup = (-1, -1)
-            for line in lines:
-                vad_out = line.strip().split()
-                if len(vad_out) > 3:
-                    start, dur, activity = float(vad_out[3]), float(vad_out[4]), vad_out[7]
-                else:
-                    start, dur, activity = float(vad_out[0]), float(vad_out[1]), vad_out[2]
-                start, dur = float("{:.3f}".format(start)), float("{:.3f}".format(dur))
+            with open(AUDIO_RTTM_MAP[key]['rttm_path'], 'r') as f:
+                audio_path = AUDIO_RTTM_MAP[key]['audio_path']
+                lines = f.readlines()
+                time_tup = (-1, -1)
+                for line in lines:
+                    vad_out = line.strip().split()
+                    if len(vad_out) > 3:
+                        start, dur, activity = float(vad_out[3]), float(vad_out[4]), vad_out[7]
+                    else:
+                        start, dur, activity = float(vad_out[0]), float(vad_out[1]), vad_out[2]
+                    start, dur = float("{:.3f}".format(start)), float("{:.3f}".format(dur))
 
-                if time_tup[0] >= 0 and start > time_tup[1]:
-                    dur2 = float("{:.3f}".format(time_tup[1] - time_tup[0]))
-                    meta = {"audio_filepath": audio_path, "offset": time_tup[0], "duration": dur2, "label": 'UNK'}
-                    json.dump(meta, outfile)
-                    outfile.write("\n")
-                    time_tup = (start, start + dur)
-                else:
-                    if time_tup[0] == -1:
+                    if time_tup[0] >= 0 and start > time_tup[1]:
+                        dur2 = float("{:.3f}".format(time_tup[1] - time_tup[0]))
+                        meta = {"audio_filepath": audio_path, "offset": time_tup[0], "duration": dur2, "label": 'UNK'}
+                        json.dump(meta, outfile)
+                        outfile.write("\n")
+                        time_tup = (start, start + dur)
+                    elif time_tup[0] == -1:
                         time_tup = (start, start + dur)
                     else:
                         time_tup = (min(time_tup[0], start), max(time_tup[1], start + dur))
-            dur2 = float("{:.3f}".format(time_tup[1] - time_tup[0]))
-            meta = {"audio_filepath": audio_path, "offset": time_tup[0], "duration": dur2, "label": 'UNK'}
-            json.dump(meta, outfile)
-            outfile.write("\n")
-            f.close()
+                dur2 = float("{:.3f}".format(time_tup[1] - time_tup[0]))
+                meta = {"audio_filepath": audio_path, "offset": time_tup[0], "duration": dur2, "label": 'UNK'}
+                json.dump(meta, outfile)
+                outfile.write("\n")
     return manifest_file
 
 

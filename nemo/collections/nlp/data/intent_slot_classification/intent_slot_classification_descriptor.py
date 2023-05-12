@@ -71,8 +71,8 @@ class IntentSlotDataDesc:
             )
 
         self.data_dir = data_dir
-        self.intent_dict_file = self.data_dir + '/dict.intents.csv'
-        self.slot_dict_file = self.data_dir + '/dict.slots.csv'
+        self.intent_dict_file = f'{self.data_dir}/dict.intents.csv'
+        self.slot_dict_file = f'{self.data_dir}/dict.slots.csv'
 
         self.intents_label_ids = IntentSlotDataDesc.label2idx(self.intent_dict_file)
         self.num_intents = len(self.intents_label_ids)
@@ -111,12 +111,14 @@ class IntentSlotDataDesc:
 
             logging.info(f'Three most popular intents in {mode} mode:')
             total_intents, intent_label_freq, max_id = get_label_stats(
-                raw_intents, infold + f'/{mode}_intent_stats.tsv'
+                raw_intents, f'{infold}/{mode}_intent_stats.tsv'
             )
 
             merged_slots = itertools.chain.from_iterable(raw_slots)
             logging.info(f'Three most popular slots in {mode} mode:')
-            slots_total, slots_label_freq, max_id = get_label_stats(merged_slots, infold + f'/{mode}_slot_stats.tsv')
+            slots_total, slots_label_freq, max_id = get_label_stats(
+                merged_slots, f'{infold}/{mode}_slot_stats.tsv'
+            )
 
             logging.info(f'Total Number of Intents: {total_intents}')
             logging.info(f'Intent Label Frequencies: {intent_label_freq}')
@@ -134,25 +136,24 @@ class IntentSlotDataDesc:
 
         if pad_label != -1:
             self.pad_label = pad_label
-        else:
-            if none_slot_label not in self.slots_label_ids:
-                raise ValueError(f'none_slot_label {none_slot_label} not ' f'found in {self.slot_dict_file}.')
+        elif none_slot_label in self.slots_label_ids:
             self.pad_label = self.slots_label_ids[none_slot_label]
+        else:
+            raise ValueError(f'none_slot_label {none_slot_label} not ' f'found in {self.slot_dict_file}.')
 
     @staticmethod
     def label2idx(file):
         lines = open(file, 'r').readlines()
         lines = [line.strip() for line in lines if line.strip()]
-        labels = {lines[i]: i for i in range(len(lines))}
-        return labels
+        return {lines[i]: i for i in range(len(lines))}
 
     @staticmethod
     def intent_slot_dicts(data_dir):
         '''
         Return Intent and slot dictionaries
         '''
-        intent_dict_file = data_dir + '/dict.intents.csv'
-        slot_dict_file = data_dir + '/dict.slots.csv'
+        intent_dict_file = f'{data_dir}/dict.intents.csv'
+        slot_dict_file = f'{data_dir}/dict.slots.csv'
 
         intents_labels = open(intent_dict_file, 'r').readlines()
         intents_labels = [line.strip() for line in intents_labels if line.strip()]

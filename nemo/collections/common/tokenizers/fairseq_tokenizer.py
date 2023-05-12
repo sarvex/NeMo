@@ -44,7 +44,7 @@ NUMERICS = ''.join(get_unicode_categories()['No'])
 
 def tokenize_en(line):
     line = line.strip()
-    line = ' ' + line + ' '
+    line = f' {line} '
     # remove ASCII junk
     line = re.sub(r'\s+', ' ', line)
     line = re.sub(r'[\x00-\x1F]', '', line)
@@ -82,16 +82,12 @@ def tokenize_en(line):
     line = ''
     for i in range(len(words)):
         word = words[i]
-        match = re.search(r'^(\S+)\.$', word)
-        if match:
-            pre = match.group(1)
+        if match := re.search(r'^(\S+)\.$', word):
+            pre = match[1]
             if i == len(words) - 1:
                 """split last words independently as they are unlikely
                 to be non-breaking prefixes"""
-                word = pre + ' .'
-            else:
-                word = pre + ' .'
-
+            word = f'{pre} .'
         word += ' '
         line += word
 

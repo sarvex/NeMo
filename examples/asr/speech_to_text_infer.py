@@ -97,17 +97,18 @@ def main():
         for batch_ind in range(greedy_predictions.shape[0]):
             seq_len = test_batch[3][batch_ind].cpu().detach().numpy()
             seq_ids = test_batch[2][batch_ind].cpu().detach().numpy()
-            reference = ''.join([labels_map[c] for c in seq_ids[0:seq_len]])
+            reference = ''.join([labels_map[c] for c in seq_ids[:seq_len]])
             references.append(reference)
         del test_batch
 
     wer_value = word_error_rate(hypotheses=hypotheses, references=references, use_cer=args.use_cer)
-    if not args.use_cer:
-        if wer_value > args.wer_tolerance:
-            raise ValueError(f"got wer of {wer_value}. it was higher than {args.wer_tolerance}")
-        logging.info(f'Got WER of {wer_value}. Tolerance was {args.wer_tolerance}')
-    else:
+    if args.use_cer:
         logging.info(f'Got CER of {wer_value}')
+
+    elif wer_value > args.wer_tolerance:
+        raise ValueError(f"got wer of {wer_value}. it was higher than {args.wer_tolerance}")
+    else:
+        logging.info(f'Got WER of {wer_value}. Tolerance was {args.wer_tolerance}')
 
 
 if __name__ == '__main__':

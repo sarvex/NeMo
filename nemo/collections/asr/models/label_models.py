@@ -57,14 +57,12 @@ class EncDecSpeakerLabelModel(ModelPT, ExportableEncDecModel):
         Returns:
             List of available pre-trained models.
         """
-        result = []
         model = PretrainedModelInfo(
             pretrained_model_name="speakerrecognition_speakernet",
             location="https://api.ngc.nvidia.com/v2/models/nvidia/nemo/speakerrecognition_speakernet/versions/1.0.0rc1/files/speakerrecognition_speakernet.nemo",
             description="For details about this model, please visit https://ngc.nvidia.com/catalog/models/nvidia:nemo:speakerrecognition_speakernet",
         )
-        result.append(model)
-
+        result = [model]
         model = PretrainedModelInfo(
             pretrained_model_name="speakerverification_speakernet",
             location="https://api.ngc.nvidia.com/v2/models/nvidia/nemo/speakerverification_speakernet/versions/1.0.0rc1/files/speakerverification_speakernet.nemo",
@@ -240,7 +238,7 @@ class EncDecSpeakerLabelModel(ModelPT, ExportableEncDecModel):
         logging.info("val_loss: {:.3f}".format(val_loss_mean))
         self.log('val_loss', val_loss_mean)
         for top_k, score in zip(self._accuracy.top_k, topk_scores):
-            self.log('val_epoch_accuracy_top@{}'.format(top_k), score)
+            self.log(f'val_epoch_accuracy_top@{top_k}', score)
 
         return {
             'val_loss': val_loss_mean,
@@ -274,7 +272,7 @@ class EncDecSpeakerLabelModel(ModelPT, ExportableEncDecModel):
         logging.info("test_loss: {:.3f}".format(test_loss_mean))
         self.log('test_loss', test_loss_mean)
         for top_k, score in zip(self._accuracy.top_k, topk_scores):
-            self.log('test_epoch_accuracy_top@{}'.format(top_k), score)
+            self.log(f'test_epoch_accuracy_top@{top_k}', score)
 
         return {
             'test_loss': test_loss_mean,
@@ -292,11 +290,7 @@ class EncDecSpeakerLabelModel(ModelPT, ExportableEncDecModel):
         make sure you set num_classes correctly for finetune data
         Returns: None
         """
-        if hasattr(self, 'dataset'):
-            scratch_labels = self.dataset.labels
-        else:
-            scratch_labels = None
-
+        scratch_labels = self.dataset.labels if hasattr(self, 'dataset') else None
         logging.info("Setting up data loaders with manifests provided from model_config")
 
         if 'train_ds' in model_config and model_config.train_ds is not None:
@@ -326,9 +320,7 @@ class EncDecSpeakerLabelModel(ModelPT, ExportableEncDecModel):
         new_decoder_config = copy.deepcopy(decoder_config)
         if new_decoder_config['num_classes'] != len(self.dataset.labels):
             raise ValueError(
-                "number of classes provided {} is not same as number of different labels in finetuning data: {}".format(
-                    new_decoder_config['num_classes'], len(self.dataset.labels)
-                )
+                f"number of classes provided {new_decoder_config['num_classes']} is not same as number of different labels in finetuning data: {len(self.dataset.labels)}"
             )
 
         del self.decoder
@@ -392,7 +384,9 @@ class ExtractSpeakerEmbeddingsModel(EncDecSpeakerLabelModel):
                 structure = dic['audio_filepath'].split('/')[-3:]
                 uniq_name = '@'.join(structure)
                 if uniq_name in out_embeddings:
-                    raise KeyError("Embeddings for label {} already present in emb dictionary".format(uniq_name))
+                    raise KeyError(
+                        f"Embeddings for label {uniq_name} already present in emb dictionary"
+                    )
                 num_slices = slices[idx]
                 end_idx = start_idx + num_slices
                 out_embeddings[uniq_name] = embs[start_idx:end_idx].mean(axis=0)
@@ -405,7 +399,7 @@ class ExtractSpeakerEmbeddingsModel(EncDecSpeakerLabelModel):
         prefix = self.test_manifest.split('/')[-1].split('.')[-2]
 
         name = os.path.join(embedding_dir, prefix)
-        pkl.dump(out_embeddings, open(name + '_embeddings.pkl', 'wb'))
-        logging.info("Saved embedding files to {}".format(embedding_dir))
+        pkl.dump(out_embeddings, open(f'{name}_embeddings.pkl', 'wb'))
+        logging.info(f"Saved embedding files to {embedding_dir}")
 
         return {}

@@ -79,7 +79,7 @@ class FromFileText(Text):
         if ext == '.csv':
             texts = pd.read_csv(file)['transcript'].tolist()
         elif ext == '.json':  # Not really a correct json.
-            texts = list(item['text'] for item in manifest.item_iter(file))
+            texts = [item['text'] for item in manifest.item_iter(file)]
         else:
             with open(file, 'r') as f:
                 texts = f.readlines()
@@ -267,7 +267,9 @@ class SpeechLabel(_Collection):
             "Filtered duration for loading collection is %f.", duration_filtered,
         )
         self.uniq_labels = sorted(set(map(lambda x: x.label, data)))
-        logging.info("# {} files loaded accounting to # {} labels".format(len(data), len(self.uniq_labels)))
+        logging.info(
+            f"# {len(data)} files loaded accounting to # {len(self.uniq_labels)} labels"
+        )
 
         super().__init__(data)
 
@@ -322,9 +324,7 @@ class ASRSpeechLabel(SpeechLabel):
             item['label'] = item.pop('command')
         elif 'target' in item:
             item['label'] = item.pop('target')
-        elif 'label' in item:
-            pass
-        else:
+        elif 'label' not in item:
             raise ValueError(f"Manifest file has invalid json line " f"structure: {line} without proper label key.")
 
         item = dict(
@@ -387,7 +387,9 @@ class FeatureSequenceLabel(_Collection):
             if len(data) == max_number:
                 break
 
-        logging.info("# {} files loaded including # {} unique labels".format(len(data), len(self.uniq_labels)))
+        logging.info(
+            f"# {len(data)} files loaded including # {len(self.uniq_labels)} unique labels"
+        )
         super().__init__(data)
 
     def relative_speaker_parser(self, seq_label):
@@ -402,7 +404,7 @@ class FeatureSequenceLabel(_Collection):
             unique_labels_in_seq (Set): A set of unique labels in the sequence
         """
         seq = seq_label.split()
-        conversion_dict = dict()
+        conversion_dict = {}
         relative_seq_label = []
 
         for seg in seq:

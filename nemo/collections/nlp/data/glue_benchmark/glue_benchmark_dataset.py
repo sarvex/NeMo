@@ -110,7 +110,7 @@ class GLUEDataset(Dataset):
         data_dir, file_name = os.path.split(file_name)
         file_name = file_name[:-4]
         self.tokenizer = tokenizer
-        evaluate = False if 'train' in file_name else True
+        evaluate = 'train' not in file_name
 
         if task_name not in processors:
             raise ValueError(f'{task_name} not supported. Choose from {processors.keys()}')
@@ -129,9 +129,7 @@ class GLUEDataset(Dataset):
         vocab_size = getattr(tokenizer, "vocab_size", 0)
         cached_features_file = os.path.join(
             data_dir,
-            "cached_{}_{}_{}_{}_{}".format(
-                processor_name, file_name, tokenizer.name, str(max_seq_length), str(vocab_size)
-            ),
+            f"cached_{processor_name}_{file_name}_{tokenizer.name}_{max_seq_length}_{vocab_size}",
         )
 
         if use_cache and os.path.exists(cached_features_file):
@@ -240,14 +238,12 @@ class GLUEDataset(Dataset):
             if example.text_b:
                 tokens_b = tokenizer.text_to_tokens(example.text_b)
 
-                special_tokens_count = 2 if eos_token else 0
-                special_tokens_count += 1 if sep_token_extra else 0
+                special_tokens_count = (2 if eos_token else 0) + (1 if sep_token_extra else 0)
                 special_tokens_count += 2 if bos_token else 0
                 special_tokens_count += 1 if cls_token else 0
                 self._truncate_seq_pair(tokens_a, tokens_b, max_seq_length - special_tokens_count)
             else:
-                special_tokens_count = 1 if eos_token else 0
-                special_tokens_count += 1 if sep_token_extra else 0
+                special_tokens_count = (1 if eos_token else 0) + (1 if sep_token_extra else 0)
                 special_tokens_count += 1 if bos_token else 0
                 if len(tokens_a) > max_seq_length - special_tokens_count:
                     tokens_a = tokens_a[: max_seq_length - special_tokens_count]
@@ -275,7 +271,6 @@ class GLUEDataset(Dataset):
                     tokens += [eos_token]
                     segment_ids += [sequence_b_segment_id]
 
-            # Add classification token - for BERT models
             if cls_token:
                 if cls_token_at_end:
                     tokens += [cls_token]
@@ -315,11 +310,11 @@ class GLUEDataset(Dataset):
 
             if ex_index < 5:
                 logging.info("*** Example ***")
-                logging.info("guid: %s" % (example.guid))
-                logging.info("tokens: %s" % " ".join(list(map(str, tokens))))
-                logging.info("input_ids: %s" % " ".join(list(map(str, input_ids))))
-                logging.info("input_mask: %s" % " ".join(list(map(str, input_mask))))
-                logging.info("segment_ids: %s" % " ".join(list(map(str, segment_ids))))
+                logging.info(f"guid: {example.guid}")
+                logging.info(f'tokens: {" ".join(list(map(str, tokens)))}')
+                logging.info(f'input_ids: {" ".join(list(map(str, input_ids)))}')
+                logging.info(f'input_mask: {" ".join(list(map(str, input_mask)))}')
+                logging.info(f'segment_ids: {" ".join(list(map(str, segment_ids)))}')
                 logging.info("label: %s (id = %d)" % (example.label, label_id))
 
             features.append(

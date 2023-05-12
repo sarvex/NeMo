@@ -53,8 +53,7 @@ def get_kneighbors_conn(X_dist, p_neighbors):
 
 def get_X_conn_from_dist(X_dist_raw, p_neighbors):
     X_r = get_kneighbors_conn(X_dist_raw, p_neighbors)
-    X_conn_from_dist = 0.5 * (X_r + X_r.T)
-    return X_conn_from_dist
+    return 0.5 * (X_r + X_r.T)
 
 
 def isFullyConnected(X_conn_from_dist):
@@ -69,15 +68,17 @@ def isFullyConnected(X_conn_from_dist):
     is_connected : bool
         True means the graph is fully connected and False means not.
     """
-    gC = _graph_connected_component(X_conn_from_dist, 0).sum() == X_conn_from_dist.shape[0]
-    return gC
+    return (
+        _graph_connected_component(X_conn_from_dist, 0).sum()
+        == X_conn_from_dist.shape[0]
+    )
 
 
 def gc_thres_min_gc(mat, max_n, n_list):
     p_neighbors, index = 1, 0
     X_conn_from_dist = get_X_conn_from_dist(mat, p_neighbors)
     fully_connected = isFullyConnected(X_conn_from_dist)
-    for i, p_neighbors in enumerate(n_list):
+    for p_neighbors in n_list:
         fully_connected = isFullyConnected(X_conn_from_dist)
         X_conn_from_dist = get_X_conn_from_dist(mat, p_neighbors)
         if fully_connected or p_neighbors > max_n:
@@ -117,10 +118,7 @@ def _graph_connected_component(graph, node_id):
         indices = np.where(nodes_to_explore)[0]
         nodes_to_explore.fill(False)
         for i in indices:
-            if sparse.issparse(graph):
-                neighbors = graph[i].toarray().ravel()
-            else:
-                neighbors = graph[i]
+            neighbors = graph[i].toarray().ravel() if sparse.issparse(graph) else graph[i]
             np.logical_or(nodes_to_explore, neighbors, out=nodes_to_explore)
     return connected_nodes
 
@@ -133,8 +131,7 @@ def getLaplacian(X):
     A = X
     D = np.sum(np.abs(A), axis=1)
     D = np.diag(D)
-    L = D - A
-    return L
+    return D - A
 
 
 def eig_decompose(L, k):
@@ -150,10 +147,10 @@ def eig_decompose(L, k):
 
 
 def getLamdaGaplist(lambdas):
-    lambda_gap_list = []
-    for i in range(len(lambdas) - 1):
-        lambda_gap_list.append(float(lambdas[i + 1]) - float(lambdas[i]))
-    return lambda_gap_list
+    return [
+        float(lambdas[i + 1]) - float(lambdas[i])
+        for i in range(len(lambdas) - 1)
+    ]
 
 
 def estimate_num_of_spkrs(X_conn, SPK_MAX):
@@ -239,7 +236,6 @@ def COSclustering(key, emb, oracle_num_speakers=None, max_num_speaker=8, MIN_SAM
     output:
     Y (List[int]): speaker labels
     """
-    est_num_spks_out_list = []
     mat = get_eigen_matrix(emb)
     if oracle_num_speakers:
         max_num_speaker = oracle_num_speakers
@@ -254,8 +250,7 @@ def COSclustering(key, emb, oracle_num_speakers=None, max_num_speaker=8, MIN_SAM
     if oracle_num_speakers:
         est_num_of_spk = oracle_num_speakers
 
-    est_num_spks_out_list.append([key, str(est_num_of_spk)])
-
+    est_num_spks_out_list = [[key, str(est_num_of_spk)]]
     # Perform spectral clustering
     spectral_model = sklearn_SpectralClustering(
         affinity='precomputed',
@@ -266,6 +261,4 @@ def COSclustering(key, emb, oracle_num_speakers=None, max_num_speaker=8, MIN_SAM
         eigen_tol=1e-10,
     )
 
-    Y = spectral_model.fit_predict(X_conn_from_dist)
-
-    return Y
+    return spectral_model.fit_predict(X_conn_from_dist)

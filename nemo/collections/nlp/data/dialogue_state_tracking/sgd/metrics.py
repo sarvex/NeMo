@@ -231,21 +231,20 @@ def get_slot_tagging_f1(frame_ref, frame_hyp, utt, service):
     Returns:
       A F1Scores object containing F1, precision, and recall scores.
     """
-    list_noncat_slots = [s["name"] for s in service["slots"] if not s["is_categorical"]]
     if "slots" not in frame_hyp:
         return None
-    else:
-        list_ref = [
-            (s["slot"], utt[s["start"] : s["exclusive_end"]])
-            for s in frame_ref["slots"]
-            if s["slot"] in list_noncat_slots
-        ]
-        list_hyp = [
-            (s["slot"], utt[s["start"] : s["exclusive_end"]])
-            for s in frame_hyp["slots"]
-            if s["slot"] in list_noncat_slots
-        ]
-        return compute_f1(list_ref, list_hyp)
+    list_noncat_slots = [s["name"] for s in service["slots"] if not s["is_categorical"]]
+    list_ref = [
+        (s["slot"], utt[s["start"] : s["exclusive_end"]])
+        for s in frame_ref["slots"]
+        if s["slot"] in list_noncat_slots
+    ]
+    list_hyp = [
+        (s["slot"], utt[s["start"] : s["exclusive_end"]])
+        for s in frame_hyp["slots"]
+        if s["slot"] in list_noncat_slots
+    ]
+    return compute_f1(list_ref, list_hyp)
 
 
 def get_requested_slots_f1(frame_ref, frame_hyp):
@@ -276,15 +275,15 @@ def get_average_and_joint_goal_accuracy(frame_ref, frame_hyp, service, use_fuzzy
       goal_acc: a dict whose values are average / joint
           all-goal / categorical-goal / non-categorical-goal accuracies.
     """
-    goal_acc = {}
-
     list_acc, slot_active, slot_cat, list_status_acc, list_value_acc = compare_slot_values(
         frame_ref["state"]["slot_values"], frame_hyp["state"]["slot_values"], service, use_fuzzy_match
     )
 
     # (4) Average goal accuracy.
     active_acc = [acc for acc, active in zip(list_acc, slot_active) if active]
-    goal_acc[AVERAGE_GOAL_ACCURACY] = np.mean(active_acc) if active_acc else NAN_VAL
+    goal_acc = {
+        AVERAGE_GOAL_ACCURACY: np.mean(active_acc) if active_acc else NAN_VAL
+    }
     # (4-a) categorical.
     active_cat_acc = [acc for acc, active, cat in zip(list_acc, slot_active, slot_cat) if active and cat]
     goal_acc[AVERAGE_CAT_ACCURACY] = np.mean(active_cat_acc) if active_cat_acc else NAN_VAL

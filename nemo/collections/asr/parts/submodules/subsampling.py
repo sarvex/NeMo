@@ -48,25 +48,31 @@ class ConvSubsampling(torch.nn.Module):
             self._kernel_size = 2
             self._ceil_mode = True
 
-            for i in range(self._sampling_num):
-                layers.append(
-                    torch.nn.Conv2d(
-                        in_channels=in_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1
-                    )
-                )
-                layers.append(activation)
-                layers.append(
-                    torch.nn.Conv2d(
-                        in_channels=conv_channels, out_channels=conv_channels, kernel_size=3, stride=1, padding=1
-                    )
-                )
-                layers.append(activation)
-                layers.append(
-                    torch.nn.MaxPool2d(
-                        kernel_size=self._kernel_size,
-                        stride=self._stride,
-                        padding=self._padding,
-                        ceil_mode=self._ceil_mode,
+            for _ in range(self._sampling_num):
+                layers.extend(
+                    (
+                        torch.nn.Conv2d(
+                            in_channels=in_channels,
+                            out_channels=conv_channels,
+                            kernel_size=3,
+                            stride=1,
+                            padding=1,
+                        ),
+                        activation,
+                        torch.nn.Conv2d(
+                            in_channels=conv_channels,
+                            out_channels=conv_channels,
+                            kernel_size=3,
+                            stride=1,
+                            padding=1,
+                        ),
+                        activation,
+                        torch.nn.MaxPool2d(
+                            kernel_size=self._kernel_size,
+                            stride=self._stride,
+                            padding=self._padding,
+                            ceil_mode=self._ceil_mode,
+                        ),
                     )
                 )
                 in_channels = conv_channels
@@ -76,23 +82,25 @@ class ConvSubsampling(torch.nn.Module):
             self._kernel_size = 3
             self._ceil_mode = False
 
-            for i in range(self._sampling_num):
-                layers.append(
-                    torch.nn.Conv2d(
-                        in_channels=in_channels,
-                        out_channels=conv_channels,
-                        kernel_size=self._kernel_size,
-                        stride=self._stride,
-                        padding=self._padding,
+            for _ in range(self._sampling_num):
+                layers.extend(
+                    (
+                        torch.nn.Conv2d(
+                            in_channels=in_channels,
+                            out_channels=conv_channels,
+                            kernel_size=self._kernel_size,
+                            stride=self._stride,
+                            padding=self._padding,
+                        ),
+                        activation,
                     )
                 )
-                layers.append(activation)
                 in_channels = conv_channels
         else:
             raise ValueError(f"Not valid sub-sampling: {subsampling}!")
 
         in_length = feat_in
-        for i in range(self._sampling_num):
+        for _ in range(self._sampling_num):
             out_length = calc_length(
                 length=int(in_length),
                 padding=self._padding,
@@ -113,7 +121,7 @@ class ConvSubsampling(torch.nn.Module):
 
         # TODO: improve the performance of length calculation
         new_lengths = lengths
-        for i in range(self._sampling_num):
+        for _ in range(self._sampling_num):
             new_lengths = [
                 calc_length(
                     length=int(length),

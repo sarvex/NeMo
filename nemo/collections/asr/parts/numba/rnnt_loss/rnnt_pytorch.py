@@ -70,11 +70,11 @@ class _RNNTNumba(Function):
 
         if reduction in ['sum', 'mean']:
             costs = costs.sum().unsqueeze_(-1)
-            if reduction == 'mean':
-                costs /= minibatch_size
+        if reduction == 'mean':
+            costs /= minibatch_size
 
-                if grads is not None:
-                    grads /= minibatch_size
+            if grads is not None:
+                grads /= minibatch_size
 
         ctx.grads = grads
 
@@ -140,17 +140,17 @@ class RNNTLossNumba(Module):
 
 def check_type(var, t, name):
     if var.dtype is not t:
-        raise TypeError("{} must be {}".format(name, t))
+        raise TypeError(f"{name} must be {t}")
 
 
 def check_contiguous(var, name):
     if not var.is_contiguous():
-        raise ValueError("{} must be contiguous".format(name))
+        raise ValueError(f"{name} must be contiguous")
 
 
 def check_dim(var, dim, name):
     if len(var.shape) != dim:
-        raise ValueError("{} must be {}D".format(name, dim))
+        raise ValueError(f"{name} must be {dim}D")
 
 
 def certify_inputs(log_probs, labels, lengths, label_lengths):

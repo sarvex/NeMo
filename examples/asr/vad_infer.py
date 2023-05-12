@@ -129,7 +129,7 @@ def main():
     vad_model.eval()
 
     time_unit = int(args.time_length / args.shift_length)
-    trunc = int(time_unit / 2)
+    trunc = time_unit // 2
     trunc_l = time_unit - trunc
     all_len = 0
 
@@ -157,12 +157,12 @@ def main():
                 to_save = pred
 
             all_len += len(to_save)
-            outpath = os.path.join(args.out_dir, data[i] + ".frame")
+            outpath = os.path.join(args.out_dir, f"{data[i]}.frame")
             with open(outpath, "a") as fout:
                 for f in range(len(to_save)):
                     fout.write('{0:0.4f}\n'.format(to_save[f]))
         del test_batch
-        if status[i] == 'end' or status[i] == 'single':
+        if status[i] in ['end', 'single']:
             logging.debug(f"Overall length of prediction of {data[i]} is {all_len}!")
             all_len = 0
 

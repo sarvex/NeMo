@@ -70,9 +70,12 @@ def _update_se_context_window(model: 'ASRModel', context_window: int, cfg: Optio
         if type(m) == jasper.JasperBlock:
             jasper_block_counter += 1
 
-        if type(m) == jasper.MaskedConv1d:
-            if m.conv.stride[0] > 1 and 'mconv' in name:
-                context_window = context_window // m.conv.stride[0]
+        if (
+            type(m) == jasper.MaskedConv1d
+            and m.conv.stride[0] > 1
+            and 'mconv' in name
+        ):
+            context_window = context_window // m.conv.stride[0]
 
         if type(m) == jasper.SqueezeExcite:
             m.change_context_window(context_window=context_window)

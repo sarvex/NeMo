@@ -176,11 +176,7 @@ class StatsPoolLayer(nn.Module):
             gram = False
             super_vector = False
 
-        if gram:
-            self.feat_in += feat_in ** 2
-        else:
-            self.feat_in += 2 * feat_in
-
+        self.feat_in += feat_in ** 2 if gram else 2 * feat_in
         if super_vector and gram:
             self.feat_in += 2 * feat_in
 
@@ -228,7 +224,7 @@ class MaskedConv1d(nn.Module):
     ):
         super(MaskedConv1d, self).__init__()
 
-        if not (heads == -1 or groups == in_channels):
+        if heads != -1 and groups != in_channels:
             raise ValueError("Only use heads for depthwise convolutions")
 
         self.real_out_channels = out_channels
@@ -416,10 +412,7 @@ class SqueezeExcite(nn.Module):
         # Computes in float32 to avoid instabilities during training with AMP.
         with torch.cuda.amp.autocast(enabled=False):
             x = x.float()
-            if timesteps < self.context_window:
-                y = self.gap(x)
-            else:
-                y = self.pool(x)  # [B, C, T - context_window + 1]
+            y = self.gap(x) if timesteps < self.context_window else self.pool(x)
             y = y.transpose(1, -1)  # [B, T - context_window + 1, C]
             y = self.fc(y)  # [B, T - context_window + 1, C]
             y = y.transpose(1, -1)  # [B, C, T - context_window + 1]
@@ -451,7 +444,7 @@ class SqueezeExcite(nn.Module):
         if hasattr(self, 'context_window'):
             logging.info(f"Changing Squeeze-Excitation context window from {self.context_window} to {context_window}")
 
-        self.context_window = int(context_window)
+        self.context_window = context_window
 
         if self.context_window <= 0:
             if PYTORCH_QUANTIZATION_AVAILABLE and self._quantize:
@@ -467,23 +460,23 @@ class SqueezeExcite(nn.Module):
             else:
                 if not isinstance(self.pool, nn.AdaptiveAvgPool1d):
                     self.pool = nn.AdaptiveAvgPool1d(1)  # context window = T
-        else:
-            if PYTORCH_QUANTIZATION_AVAILABLE and self._quantize:
-                if not isinstance(self.pool, quant_nn.QuantAvgPool1d):
-                    self.pool = quant_nn.QuantAvgPool1d(self.context_window, stride=1)
+        elif PYTORCH_QUANTIZATION_AVAILABLE and self._quantize:
+            if not isinstance(self.pool, quant_nn.QuantAvgPool1d):
+                self.pool = quant_nn.QuantAvgPool1d(self.context_window, stride=1)
 
-            elif not PYTORCH_QUANTIZATION_AVAILABLE and self._quantize:
-                raise ImportError(
-                    "pytorch-quantization is not installed. Install from "
-                    "https://github.com/NVIDIA/TensorRT/tree/master/tools/pytorch-quantization."
-                )
+        elif not PYTORCH_QUANTIZATION_AVAILABLE and self._quantize:
+            raise ImportError(
+                "pytorch-quantization is not installed. Install from "
+                "https://github.com/NVIDIA/TensorRT/tree/master/tools/pytorch-quantization."
+            )
+
+        else:
+            if isinstance(self.pool, nn.AvgPool1d):
+                # update the context window
+                self.pool.kernel_size = _single(self.context_window)
 
             else:
-                if not isinstance(self.pool, nn.AvgPool1d):
-                    self.pool = nn.AvgPool1d(self.context_window, stride=1)
-                else:
-                    # update the context window
-                    self.pool.kernel_size = _single(self.context_window)
+                self.pool = nn.AvgPool1d(self.context_window, stride=1)
 
 
 class JasperBlock(nn.Module):
@@ -657,11 +650,7 @@ class JasperBlock(nn.Module):
 
         for _ in range(repeat - 1):
             # Stride last means only the last convolution in block will have stride
-            if stride_last:
-                stride_val = [1]
-            else:
-                stride_val = stride
-
+            stride_val = [1] if stride_last else stride
             conv.extend(
                 self._get_conv_bn_layer(
                     inplanes_loop,
@@ -720,11 +709,7 @@ class JasperBlock(nn.Module):
         if residual:
             res_list = nn.ModuleList()
 
-            if residual_mode == 'stride_add':
-                stride_val = stride
-            else:
-                stride_val = [1]
-
+            stride_val = stride if residual_mode == 'stride_add' else [1]
             if len(residual_panes) == 0:
                 res_panes = [inplanes]
                 self.dense_residual = False
@@ -770,8 +755,7 @@ class JasperBlock(nn.Module):
         separable=False,
         quantize=False,
     ):
-        use_mask = self.conv_mask
-        if use_mask:
+        if use_mask := self.conv_mask:
             return MaskedConv1d(
                 in_channels,
                 out_channels,
@@ -785,34 +769,33 @@ class JasperBlock(nn.Module):
                 use_mask=use_mask,
                 quantize=quantize,
             )
+        if PYTORCH_QUANTIZATION_AVAILABLE and quantize:
+            return quant_nn.QuantConv1d(
+                in_channels,
+                out_channels,
+                kernel_size,
+                stride=stride,
+                dilation=dilation,
+                padding=padding,
+                bias=bias,
+                groups=groups,
+            )
+        elif not PYTORCH_QUANTIZATION_AVAILABLE and quantize:
+            raise ImportError(
+                "pytorch-quantization is not installed. Install from "
+                "https://github.com/NVIDIA/TensorRT/tree/master/tools/pytorch-quantization."
+            )
         else:
-            if PYTORCH_QUANTIZATION_AVAILABLE and quantize:
-                return quant_nn.QuantConv1d(
-                    in_channels,
-                    out_channels,
-                    kernel_size,
-                    stride=stride,
-                    dilation=dilation,
-                    padding=padding,
-                    bias=bias,
-                    groups=groups,
-                )
-            elif not PYTORCH_QUANTIZATION_AVAILABLE and quantize:
-                raise ImportError(
-                    "pytorch-quantization is not installed. Install from "
-                    "https://github.com/NVIDIA/TensorRT/tree/master/tools/pytorch-quantization."
-                )
-            else:
-                return nn.Conv1d(
-                    in_channels,
-                    out_channels,
-                    kernel_size,
-                    stride=stride,
-                    dilation=dilation,
-                    padding=padding,
-                    bias=bias,
-                    groups=groups,
-                )
+            return nn.Conv1d(
+                in_channels,
+                out_channels,
+                kernel_size,
+                stride=stride,
+                dilation=dilation,
+                padding=padding,
+                bias=bias,
+                groups=groups,
+            )
 
     def _get_conv_bn_layer(
         self,
@@ -894,8 +877,7 @@ class JasperBlock(nn.Module):
     def _get_act_dropout_layer(self, drop_prob=0.2, activation=None):
         if activation is None:
             activation = nn.Hardtanh(min_val=0.0, max_val=20.0)
-        layers = [activation, nn.Dropout(p=drop_prob)]
-        return layers
+        return [activation, nn.Dropout(p=drop_prob)]
 
     def forward(self, input_: Tuple[List[Tensor], Optional[Tensor]]):
         """
@@ -920,7 +902,7 @@ class JasperBlock(nn.Module):
         out = xs[-1]
 
         lens = lens_orig
-        for i, l in enumerate(self.mconv):
+        for l in self.mconv:
             # if we're doing masked convolutions, we need to pass in and
             # possibly update the sequence lengths
             # if (i % 4) == 0 and self.conv_mask:
@@ -933,13 +915,13 @@ class JasperBlock(nn.Module):
         if self.res is not None:
             for i, layer in enumerate(self.res):
                 res_out = xs[i]
-                for j, res_layer in enumerate(layer):
+                for res_layer in layer:
                     if isinstance(res_layer, MaskedConv1d):
                         res_out, _ = res_layer(res_out, lens_orig)
                     else:
                         res_out = res_layer(res_out)
 
-                if self.residual_mode == 'add' or self.residual_mode == 'stride_add':
+                if self.residual_mode in ['add', 'stride_add']:
                     if PYTORCH_QUANTIZATION_AVAILABLE and self.quantize:
                         out = self.residual_quantizer(out) + res_out
                     elif not PYTORCH_QUANTIZATION_AVAILABLE and self.quantize:

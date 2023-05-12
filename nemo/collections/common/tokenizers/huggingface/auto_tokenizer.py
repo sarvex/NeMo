@@ -139,12 +139,19 @@ class AutoTokenizer(TokenizerSpec):
         elif self.tokenizer.cls_token is None and self.tokenizer.bos_token:
             special_tokens_dict["cls_token"] = self.tokenizer.bos_token
 
-        new_tokens_in_vocab = []
-        for token in [mask_token, bos_token, eos_token, pad_token, sep_token, cls_token, unk_token]:
-            if token is not None and token not in self.tokenizer.get_vocab():
-                new_tokens_in_vocab.append(token)
-
-        if len(new_tokens_in_vocab) > 0:
+        if new_tokens_in_vocab := [
+            token
+            for token in [
+                mask_token,
+                bos_token,
+                eos_token,
+                pad_token,
+                sep_token,
+                cls_token,
+                unk_token,
+            ]
+            if token is not None and token not in self.tokenizer.get_vocab()
+        ]:
             """
             Special tokens that were not previously included in the tokenizer's vocabulary file will be added to 
             the vocabulary and, as a result, the model should be resized, for example:
@@ -198,8 +205,7 @@ class AutoTokenizer(TokenizerSpec):
         return num_tokens_added
 
     def text_to_tokens(self, text):
-        tokens = self.tokenizer.tokenize(text)
-        return tokens
+        return self.tokenizer.tokenize(text)
 
     def tokens_to_text(self, tokens):
         text = self.tokenizer.convert_tokens_to_string(tokens)
@@ -209,23 +215,19 @@ class AutoTokenizer(TokenizerSpec):
         return self.tokens_to_ids([token])[0]
 
     def tokens_to_ids(self, tokens):
-        ids = self.tokenizer.convert_tokens_to_ids(tokens)
-        return ids
+        return self.tokenizer.convert_tokens_to_ids(tokens)
 
     def ids_to_tokens(self, ids):
-        tokens = self.tokenizer.convert_ids_to_tokens(ids)
-        return tokens
+        return self.tokenizer.convert_ids_to_tokens(ids)
 
     def text_to_ids(self, text):
         tokens = self.text_to_tokens(text)
-        ids = self.tokens_to_ids(tokens)
-        return ids
+        return self.tokens_to_ids(tokens)
 
     def ids_to_text(self, ids):
         tokens = self.ids_to_tokens(ids)
         tokens_clean = [t for t in tokens if t not in self.tokenizer.all_special_tokens]
-        text = self.tokens_to_text(tokens_clean)
-        return text
+        return self.tokens_to_text(tokens_clean)
 
     @property
     def pad_id(self):

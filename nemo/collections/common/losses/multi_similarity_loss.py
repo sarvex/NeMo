@@ -86,7 +86,7 @@ class MultiSimilarityLoss(Loss):
             )
             losses.append(pos_term + neg_term)
 
-        if len(losses) == 0:
+        if not losses:
             loss = torch.zeros([], requires_grad=True).cuda()
             logging.info(f'Encountered zero loss in multisimloss, loss = {loss}. No hard examples found in the batch')
         else:

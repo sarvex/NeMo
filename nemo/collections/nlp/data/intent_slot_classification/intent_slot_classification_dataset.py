@@ -45,10 +45,7 @@ def get_features(
     sent_lengths = []
     all_slots = []
 
-    with_label = False
-    if raw_slots is not None:
-        with_label = True
-
+    with_label = raw_slots is not None
     for i, query in enumerate(queries):
         words = query.strip().split()
         subtokens = [tokenizer.cls_token]
@@ -118,13 +115,15 @@ def get_features(
     # May be useful for debugging
     logging.debug("*** Some Examples of Processed Data ***")
     for i in range(min(len(all_input_ids), 5)):
-        logging.debug("i: %s" % (i))
-        logging.debug("subtokens: %s" % " ".join(list(map(str, all_subtokens[i]))))
-        logging.debug("loss_mask: %s" % " ".join(list(map(str, all_loss_mask[i]))))
-        logging.debug("input_mask: %s" % " ".join(list(map(str, all_input_mask[i]))))
-        logging.debug("subtokens_mask: %s" % " ".join(list(map(str, all_subtokens_mask[i]))))
+        logging.debug(f"i: {i}")
+        logging.debug(f'subtokens: {" ".join(list(map(str, all_subtokens[i])))}')
+        logging.debug(f'loss_mask: {" ".join(list(map(str, all_loss_mask[i])))}')
+        logging.debug(f'input_mask: {" ".join(list(map(str, all_input_mask[i])))}')
+        logging.debug(
+            f'subtokens_mask: {" ".join(list(map(str, all_subtokens_mask[i])))}'
+        )
         if with_label:
-            logging.debug("slots_label: %s" % " ".join(list(map(str, all_slots[i]))))
+            logging.debug(f'slots_label: {" ".join(list(map(str, all_slots[i])))}')
 
     return (all_input_ids, all_segment_ids, all_input_mask, all_loss_mask, all_subtokens_mask, all_slots)
 

@@ -91,8 +91,10 @@ def splice_frames(x, frame_splicing):
 
     """
     seq = [x]
-    for n in range(1, frame_splicing):
-        seq.append(torch.cat([x[:, :, :n], x[:, :, n:]], dim=2))
+    seq.extend(
+        torch.cat([x[:, :, :n], x[:, :, n:]], dim=2)
+        for n in range(1, frame_splicing)
+    )
     return torch.cat(seq, dim=1)
 
 
@@ -188,9 +190,7 @@ class STFTExactPad(STFTPatch):
 
         inverse_transform = inverse_transform[..., self.pad_amount :]
         inverse_transform = inverse_transform[..., : -self.pad_amount :]
-        inverse_transform = inverse_transform.squeeze(1)
-
-        return inverse_transform
+        return inverse_transform.squeeze(1)
 
 
 class FilterbankFeatures(nn.Module):
@@ -284,7 +284,7 @@ class FilterbankFeatures(nn.Module):
                 n_fft=self.n_fft,
                 hop_length=self.hop_length,
                 win_length=self.win_length,
-                center=False if exact_pad else True,
+                center=not exact_pad,
                 window=self.window.to(dtype=torch.float),
                 return_complex=False,
             )
@@ -336,19 +336,18 @@ class FilterbankFeatures(nn.Module):
         logging.debug(f"using grads: {use_grads}")
 
     def log_zero_guard_value_fn(self, x):
-        if isinstance(self.log_zero_guard_value, str):
-            if self.log_zero_guard_value == "tiny":
-                return torch.finfo(x.dtype).tiny
-            elif self.log_zero_guard_value == "eps":
-                return torch.finfo(x.dtype).eps
-            else:
-                raise ValueError(
-                    f"{self} received {self.log_zero_guard_value} for the "
-                    f"log_zero_guard_type parameter. It must be either a "
-                    f"number, 'tiny', or 'eps'"
-                )
-        else:
+        if not isinstance(self.log_zero_guard_value, str):
             return self.log_zero_guard_value
+        if self.log_zero_guard_value == "tiny":
+            return torch.finfo(x.dtype).tiny
+        elif self.log_zero_guard_value == "eps":
+            return torch.finfo(x.dtype).eps
+        else:
+            raise ValueError(
+                f"{self} received {self.log_zero_guard_value} for the "
+                f"log_zero_guard_type parameter. It must be either a "
+                f"number, 'tiny', or 'eps'"
+            )
 
     def get_seq_len(self, seq_len):
         if isinstance(self.stft, STFT):

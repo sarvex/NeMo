@@ -69,18 +69,19 @@ class _FeatureSeqSpeakerLabelDataset(Dataset):
         }
 
         if self.is_speaker_emb:
-            output_types.update(
-                {
-                    'embs': NeuralType(('B', 'D', 'T'), AcousticEncodedRepresentation()),
-                    'embs_length': NeuralType(tuple('B'), LengthsType()),
-                    'label': NeuralType(('B', 'T'), LabelsType()),
-                    'label_length': NeuralType(tuple('B'), LengthsType()),
-                }
-            )
+            output_types |= {
+                'embs': NeuralType(
+                    ('B', 'D', 'T'), AcousticEncodedRepresentation()
+                ),
+                'embs_length': NeuralType(tuple('B'), LengthsType()),
+                'label': NeuralType(('B', 'T'), LabelsType()),
+                'label_length': NeuralType(tuple('B'), LengthsType()),
+            }
         else:
-            output_types.update(
-                {'label': NeuralType(('B', 'T'), LabelsType()), 'label_length': NeuralType(tuple('B'), LengthsType()),}
-            )
+            output_types |= {
+                'label': NeuralType(('B', 'T'), LabelsType()),
+                'label_length': NeuralType(tuple('B'), LengthsType()),
+            }
 
         return output_types
 
@@ -100,7 +101,7 @@ class _FeatureSeqSpeakerLabelDataset(Dataset):
             self.id2label[label_id] = label
 
         for idx in range(len(self.labels[:5])):
-            logging.debug(" label id {} and its mapped label {}".format(idx, self.id2label[idx]))
+            logging.debug(f" label id {idx} and its mapped label {self.id2label[idx]}")
 
     def __len__(self):
         return len(self.collection)

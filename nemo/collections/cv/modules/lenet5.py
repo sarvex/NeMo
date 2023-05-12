@@ -91,8 +91,7 @@ class LeNet5(NeuralModule):
             Batch of predictions.
         """
 
-        predictions = self.model(images)
-        return predictions
+        return self.model(images)
 
     def save_to(self, save_path: str):
         """Not implemented yet.

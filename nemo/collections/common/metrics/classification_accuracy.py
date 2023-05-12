@@ -110,9 +110,7 @@ class TopKClassificationAccuracy(Metric):
             return [self.correct_counts_k.float() / self.total_counts_k]
 
         else:
-            top_k_scores = compute_topk_accuracy(self.correct_counts_k, self.total_counts_k)
-
-            return top_k_scores
+            return compute_topk_accuracy(self.correct_counts_k, self.total_counts_k)
 
     @property
     def top_k(self) -> List[int]:

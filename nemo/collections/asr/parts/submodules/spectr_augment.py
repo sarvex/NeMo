@@ -71,10 +71,10 @@ class SpecAugment(nn.Module, Typing):
 
         if isinstance(time_width, int):
             self.adaptive_temporal_width = False
-        else:
-            if time_width > 1.0 or time_width < 0.0:
-                raise ValueError("If `time_width` is a float value, must be in range [0, 1]")
+        elif time_width > 1.0 or time_width < 0.0:
+            raise ValueError("If `time_width` is a float value, must be in range [0, 1]")
 
+        else:
             self.adaptive_temporal_width = True
 
     @typecheck()
@@ -83,19 +83,19 @@ class SpecAugment(nn.Module, Typing):
         sh = input_spec.shape
 
         for idx in range(sh[0]):
-            for i in range(self.freq_masks):
+            for _ in range(self.freq_masks):
                 x_left = self._rng.randint(0, sh[1] - self.freq_width)
 
                 w = self._rng.randint(0, self.freq_width)
 
                 input_spec[idx, x_left : x_left + w, :] = self.mask_value
 
-            for i in range(self.time_masks):
-                if self.adaptive_temporal_width:
-                    time_width = max(1, int(length[idx] * self.time_width))
-                else:
-                    time_width = self.time_width
-
+            for _ in range(self.time_masks):
+                time_width = (
+                    max(1, int(length[idx] * self.time_width))
+                    if self.adaptive_temporal_width
+                    else self.time_width
+                )
                 y_left = self._rng.randint(0, max(1, length[idx] - time_width))
 
                 w = self._rng.randint(0, time_width)
@@ -143,7 +143,7 @@ class SpecCutout(nn.Module, Typing):
         sh = input_spec.shape
 
         for idx in range(sh[0]):
-            for i in range(self.rect_masks):
+            for _ in range(self.rect_masks):
                 rect_x = self._rng.randint(0, sh[1] - self.rect_freq)
                 rect_y = self._rng.randint(0, sh[2] - self.rect_time)
 

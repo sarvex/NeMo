@@ -50,11 +50,11 @@ def score_with_sctk(sctk_dir, ref_fname, hyp_fname, out_dir, glm=""):
         rfilter_path = os.path.join(sctk_dir, "bin", "rfilter1")
         if not os.path.exists(rfilter_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), rfilter_path)
-        hypglm = os.path.join(out_dir, os.path.basename(hyp_fname)) + ".glm"
+        hypglm = f"{os.path.join(out_dir, os.path.basename(hyp_fname))}.glm"
         rfilt_cmd = [rfilter_path] + [glm]
         with open(hypglm, "w") as hypf, open(hyp_fname, "r") as hyp_in:
             subprocess.run(rfilt_cmd, stdin=hyp_in, stdout=hypf)
-        refglm = os.path.join(out_dir, os.path.basename(ref_fname)) + ".glm"
+        refglm = f"{os.path.join(out_dir, os.path.basename(ref_fname))}.glm"
         with open(refglm, "w") as reff, open(ref_fname, "r") as ref_in:
             subprocess.run(rfilt_cmd, stdin=ref_in, stdout=reff)
     else:
@@ -132,8 +132,7 @@ def main():
             log_probs, encoded_len, greedy_predictions = asr_model(
                 input_signal=test_batch[0], input_signal_length=test_batch[1]
             )
-        for r in log_probs.cpu().numpy():
-            all_log_probs.append(r)
+        all_log_probs.extend(iter(log_probs.cpu().numpy()))
         hypotheses += wer.ctc_decoder_predictions_tensor(greedy_predictions)
         for batch_ind in range(greedy_predictions.shape[0]):
             reference = ''.join([labels_map[c] for c in test_batch[2][batch_ind].cpu().detach().numpy()])
@@ -143,12 +142,12 @@ def main():
     info_list = get_utt_info(args.dataset)
     hypfile = os.path.join(args.out_dir, "hyp.trn")
     reffile = os.path.join(args.out_dir, "ref.trn")
-    with open(hypfile, "w") as hyp_f, open(reffile, "w") as ref_f:
+    with (open(hypfile, "w") as hyp_f, open(reffile, "w") as ref_f):
         for i in range(len(hypotheses)):
             utt_id = os.path.splitext(os.path.basename(info_list[i]['audio_filepath']))[0]
             # rfilter in sctk likes each transcript to have a space at the beginning
-            hyp_f.write(" " + hypotheses[i] + " (" + utt_id + ")" + "\n")
-            ref_f.write(" " + references[i] + " (" + utt_id + ")" + "\n")
+            hyp_f.write(f" {hypotheses[i]} ({utt_id})" + "\n")
+            ref_f.write(f" {references[i]} ({utt_id})" + "\n")
 
     if use_sctk:
         score_with_sctk(args.sctk_dir, reffile, hypfile, args.out_dir, glm=args.glm)

@@ -42,15 +42,12 @@ class EncDecCTCModelBPE(EncDecCTCModel, ASRBPEMixin):
         Returns:
             List of available pre-trained models.
         """
-        results = []
-
         model = PretrainedModelInfo(
             pretrained_model_name="stt_en_citrinet_256",
             description="For details about this model, please visit https://ngc.nvidia.com/catalog/models/nvidia:nemo:stt_en_citrinet_256",
             location="https://api.ngc.nvidia.com/v2/models/nvidia/nemo/stt_en_citrinet_256/versions/1.0.0rc1/files/stt_en_citrinet_256.nemo",
         )
-        results.append(model)
-
+        results = [model]
         model = PretrainedModelInfo(
             pretrained_model_name="stt_en_citrinet_512",
             description="For details about this model, please visit https://ngc.nvidia.com/catalog/models/nvidia:nemo:stt_en_citrinet_512",
@@ -162,9 +159,7 @@ class EncDecCTCModelBPE(EncDecCTCModel, ASRBPEMixin):
 
         if num_classes < 1:
             logging.info(
-                "\nReplacing placeholder number of classes ({}) with actual number of classes - {}".format(
-                    num_classes, len(vocabulary)
-                )
+                f"\nReplacing placeholder number of classes ({num_classes}) with actual number of classes - {len(vocabulary)}"
             )
             cfg.decoder["num_classes"] = len(vocabulary)
 
@@ -251,8 +246,7 @@ class EncDecCTCModelBPE(EncDecCTCModel, ASRBPEMixin):
             'shuffle': False,
         }
 
-        temporary_datalayer = self._setup_dataloader_from_config(config=DictConfig(dl_config))
-        return temporary_datalayer
+        return self._setup_dataloader_from_config(config=DictConfig(dl_config))
 
     def change_vocabulary(self, new_tokenizer_dir: str, new_tokenizer_type: str):
         """
@@ -276,7 +270,7 @@ class EncDecCTCModelBPE(EncDecCTCModel, ASRBPEMixin):
             )
 
         if new_tokenizer_type.lower() not in ('bpe', 'wpe'):
-            raise ValueError(f'New tokenizer type must be either `bpe` or `wpe`')
+            raise ValueError('New tokenizer type must be either `bpe` or `wpe`')
 
         tokenizer_cfg = OmegaConf.create({'dir': new_tokenizer_dir, 'type': new_tokenizer_type})
 
@@ -294,9 +288,7 @@ class EncDecCTCModelBPE(EncDecCTCModel, ASRBPEMixin):
 
         # Override number of classes if placeholder provided
         logging.info(
-            "\nReplacing old number of classes ({}) with new number of classes - {}".format(
-                decoder_num_classes, len(vocabulary)
-            )
+            f"\nReplacing old number of classes ({decoder_num_classes}) with new number of classes - {len(vocabulary)}"
         )
 
         decoder_config['num_classes'] = len(vocabulary)

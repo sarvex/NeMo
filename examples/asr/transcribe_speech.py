@@ -82,11 +82,7 @@ def main(cfg: TranscriptionConfig):
     if cfg.cuda is None:
         cfg.cuda = torch.cuda.is_available()
 
-    if type(cfg.cuda) == int:
-        device_id = int(cfg.cuda)
-    else:
-        device_id = 0
-
+    device_id = int(cfg.cuda) if type(cfg.cuda) == int else 0
     device = torch.device(f'cuda:{device_id}' if cfg.cuda else 'cpu')
 
     # setup model

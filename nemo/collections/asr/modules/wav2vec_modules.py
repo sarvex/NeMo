@@ -121,8 +121,7 @@ class GumbelVectorQuantizer(NeuralModule):
         sample_idx = torch.randint(low=0, high=cb_size, size=(b * n,))
         indices = indices[sample_idx]
 
-        z = self.vars.squeeze(0).index_select(0, indices.flatten()).view(b, n, -1)
-        return z
+        return self.vars.squeeze(0).index_select(0, indices.flatten()).view(b, n, -1)
 
     @property
     def input_types(self):
@@ -255,7 +254,7 @@ def compute_mask_indices(
             lengths = np.random.poisson(mask_length, size=num_mask)
             lengths = [int(round(x)) for x in lengths]
         else:
-            raise Exception("unknown mask selection " + str(mask_type))
+            raise Exception(f"unknown mask selection {str(mask_type)}")
 
         if sum(lengths) == 0:
             lengths[0] = min(mask_length, sz - 1)
@@ -297,7 +296,7 @@ def compute_mask_indices(
 
         mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))
 
-    min_len = min([len(m) for m in mask_idcs])
+    min_len = min(len(m) for m in mask_idcs)
     for i, mask_idc in enumerate(mask_idcs):
         if len(mask_idc) > min_len:
             mask_idc = np.random.choice(mask_idc, min_len, replace=False)

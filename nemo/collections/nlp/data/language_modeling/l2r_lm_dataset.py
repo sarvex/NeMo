@@ -166,7 +166,10 @@ class TarredL2RLanguageModelingDataset(IterableDataset):
             # Brace expand
             text_tar_filepaths = list(braceexpand.braceexpand(text_tar_filepaths))
 
-        if shard_strategy == 'scatter':
+        if shard_strategy == 'replicate':
+            logging.info("All tarred dataset shards will be replicated across all nodes.")
+
+        elif shard_strategy == 'scatter':
             logging.info("All tarred dataset shards will be scattered evenly across all nodes.")
 
             if len(text_tar_filepaths) % world_size != 0:
@@ -181,9 +184,6 @@ class TarredL2RLanguageModelingDataset(IterableDataset):
             logging.info(
                 "Partitioning tarred dataset: process (%d) taking shards [%d, %d)", global_rank, begin_idx, end_idx
             )
-
-        elif shard_strategy == 'replicate':
-            logging.info("All tarred dataset shards will be replicated across all nodes.")
 
         else:
             raise ValueError(f"Invalid shard strategy ! Allowed values are : {valid_shard_strategies}")
@@ -230,8 +230,7 @@ class TarredL2RLanguageModelingDataset(IterableDataset):
         dl_iter = iter(self._dataset)
         while True:
             try:
-                batch = next(dl_iter)
-                yield batch
+                yield next(dl_iter)
             except StopIteration:
                 dl_iter = iter(self._dataset)
                 continue

@@ -29,7 +29,7 @@ try:
     from nvidia.dali.plugin.pytorch import LastBatchPolicy as LastBatchPolicy
 
     HAVE_DALI = True
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     HAVE_DALI = False
 
 __all__ = [

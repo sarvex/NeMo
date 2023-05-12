@@ -56,7 +56,7 @@ try:
     from nemo.collections.asr.parts.utils import numba_utils
 
     HAVE_NUMBA = True
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     HAVE_NUMBA = False
 
 
@@ -318,12 +318,10 @@ class ImpulsePerturbation(Perturbation):
             tarred_audio=self._tarred_audio,
             audio_dataset=self._data_iterator,
         )
+        impulse_norm = (impulse.samples - min(impulse.samples)) / (max(impulse.samples) - min(impulse.samples))
         if not self._shift_impulse:
-            impulse_norm = (impulse.samples - min(impulse.samples)) / (max(impulse.samples) - min(impulse.samples))
             data._samples = signal.fftconvolve(data._samples, impulse_norm, "same")
         else:
-            # Find peak and shift peak to left
-            impulse_norm = (impulse.samples - min(impulse.samples)) / (max(impulse.samples) - min(impulse.samples))
             max_ind = np.argmax(np.abs(impulse_norm))
 
             impulse_resp = impulse_norm[max_ind:]
@@ -456,7 +454,7 @@ class NoisePerturbation(Perturbation):
         noise_gain_db = min(data_rms - noise.rms_db - snr_db, self._max_gain_db)
         n_additions = self._rng.randint(1, max_additions)
 
-        for i in range(n_additions):
+        for _ in range(n_additions):
             noise_dur = self._rng.uniform(0.0, max_noise_dur)
             start_time = self._rng.uniform(0.0, noise.duration)
             start_sample = int(round(start_time * noise.sample_rate))
@@ -466,7 +464,7 @@ class NoisePerturbation(Perturbation):
             noise_samples *= 10.0 ** (noise_gain_db / 20.0)
 
             if noise_samples.shape[0] > data._samples.shape[0]:
-                noise_samples = noise_samples[0 : data._samples.shape[0]]
+                noise_samples = noise_samples[:data._samples.shape[0]]
 
             noise_idx = self._rng.randint(0, data._samples.shape[0] - noise_samples.shape[0])
             data._samples[noise_idx : noise_idx + noise_samples.shape[0]] += noise_samples
@@ -558,10 +556,7 @@ class RirAndNoisePerturbation(Perturbation):
         self._bg_noise_perturbers = {}
         if noise_manifest_paths:
             for i in range(len(noise_manifest_paths)):
-                if orig_sample_rate is None:
-                    orig_sr = 16000
-                else:
-                    orig_sr = orig_sample_rate[i]
+                orig_sr = 16000 if orig_sample_rate is None else orig_sample_rate[i]
                 self._fg_noise_perturbers[orig_sr] = NoisePerturbation(
                     manifest_path=noise_manifest_paths[i],
                     min_snr_db=min_snr_db[i],
@@ -573,10 +568,7 @@ class RirAndNoisePerturbation(Perturbation):
         self._max_duration = max_duration
         if bg_noise_manifest_paths:
             for i in range(len(bg_noise_manifest_paths)):
-                if bg_orig_sample_rate is None:
-                    orig_sr = 16000
-                else:
-                    orig_sr = bg_orig_sample_rate[i]
+                orig_sr = 16000 if bg_orig_sample_rate is None else bg_orig_sample_rate[i]
                 self._bg_noise_perturbers[orig_sr] = NoisePerturbation(
                     manifest_path=bg_noise_manifest_paths[i],
                     min_snr_db=bg_min_snr_db[i],
@@ -651,7 +643,7 @@ class TranscodePerturbation(Perturbation):
             )
 
         new_data = AudioSegment.from_file(transcoded_f.name, target_sr=16000)
-        data._samples = new_data._samples[0 : data._samples.shape[0]]
+        data._samples = new_data._samples[:data._samples.shape[0]]
         return
 
 
@@ -792,7 +784,7 @@ def process_augmentations(augmenter) -> Optional[AudioAugmentor]:
     if isinstance(augmenter, AudioAugmentor):
         return augmenter
 
-    if not type(augmenter) in {dict, DictConfig}:
+    if type(augmenter) not in {dict, DictConfig}:
         raise ValueError("Cannot parse augmenter. Must be a dict or an AudioAugmentor object ")
 
     if isinstance(augmenter, DictConfig):
@@ -810,17 +802,16 @@ def process_augmentations(augmenter) -> Optional[AudioAugmentor]:
                 f'keyword argument "prob" was not defined for this augmentation.'
             )
 
-        else:
-            _ = augment_kwargs.pop('prob')
+        _ = augment_kwargs.pop('prob')
 
-            if prob < 0.0 or prob > 1.0:
-                raise ValueError("`prob` must be a float value between 0 and 1.")
+        if prob < 0.0 or prob > 1.0:
+            raise ValueError("`prob` must be a float value between 0 and 1.")
 
-            try:
-                augmentation = perturbation_types[augment_name](**augment_kwargs)
-                augmentations.append([prob, augmentation])
-            except KeyError:
-                raise KeyError(f"Invalid perturbation name. Allowed values : {perturbation_types.keys()}")
+        try:
+            augmentation = perturbation_types[augment_name](**augment_kwargs)
+            augmentations.append([prob, augmentation])
+        except KeyError:
+            raise KeyError(f"Invalid perturbation name. Allowed values : {perturbation_types.keys()}")
 
     augmenter = AudioAugmentor(perturbations=augmentations)
     return augmenter

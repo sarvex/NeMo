@@ -68,17 +68,17 @@ class ConvASREncoder(NeuralModule, Exportable):
             A tuple of input examples.
         """
         input_example = torch.randn(16, self._feat_in, 256).to(next(self.parameters()).device)
-        return tuple([input_example])
+        return (input_example, )
 
     @property
     def disabled_deployment_input_names(self):
         """Implement this method to return a set of input names disabled for export"""
-        return set(["length"])
+        return {"length"}
 
     @property
     def disabled_deployment_output_names(self):
         """Implement this method to return a set of output names disabled for export"""
-        return set(["encoded_lengths"])
+        return {"encoded_lengths"}
 
     def save_to(self, save_path: str):
         pass
@@ -132,7 +132,7 @@ class ConvASREncoder(NeuralModule, Exportable):
         if hasattr(activation, 'inplace'):
             activation.inplace = True
 
-        feat_in = feat_in * frame_splicing
+        feat_in *= frame_splicing
 
         self._feat_in = feat_in
 
@@ -195,10 +195,7 @@ class ConvASREncoder(NeuralModule, Exportable):
     @typecheck()
     def forward(self, audio_signal, length=None):
         s_input, length = self.encoder(([audio_signal], length))
-        if length is None:
-            return s_input[-1]
-
-        return s_input[-1], length
+        return s_input[-1] if length is None else (s_input[-1], length)
 
 
 class ConvASRDecoder(NeuralModule, Exportable):
@@ -256,7 +253,7 @@ class ConvASRDecoder(NeuralModule, Exportable):
         bs = 8
         seq = 64
         input_example = torch.randn(bs, self._feat_in, seq).to(next(self.parameters()).device)
-        return tuple([input_example])
+        return (input_example, )
 
     def _prepare_for_export(self, **kwargs):
         m_count = 0
@@ -291,7 +288,7 @@ class ConvASRDecoderClassification(NeuralModule, Exportable):
             A tuple of input examples.
         """
         input_example = torch.randn(16, self._feat_in, 128).to(next(self.parameters()).device)
-        return tuple([input_example])
+        return (input_example, )
 
     @property
     def input_types(self):
@@ -366,7 +363,7 @@ class SpeakerDecoder(NeuralModule, Exportable):
             A tuple of input examples.
         """
         input_example = torch.randn(16, self.input_feat_in, 256).to(next(self.parameters()).device)
-        return tuple([input_example])
+        return (input_example, )
 
     @property
     def input_types(self):
@@ -387,11 +384,7 @@ class SpeakerDecoder(NeuralModule, Exportable):
         super().__init__()
         self.angular = angular
         self.emb_id = 2
-        if self.angular:
-            bias = False
-        else:
-            bias = True
-
+        bias = not self.angular
         if type(emb_sizes) is str:
             emb_sizes = emb_sizes.split(',')
         elif type(emb_sizes) is int:
@@ -405,9 +398,7 @@ class SpeakerDecoder(NeuralModule, Exportable):
         self._feat_in = self._pooling.feat_in
 
         shapes = [self._feat_in]
-        for size in emb_sizes:
-            shapes.append(int(size))
-
+        shapes.extend(int(size) for size in emb_sizes)
         emb_layers = []
         for shape_in, shape_out in zip(shapes[:-1], shapes[1:]):
             layer = self.affineLayer(shape_in, shape_out, learn_mean=False)
@@ -420,13 +411,11 @@ class SpeakerDecoder(NeuralModule, Exportable):
         self.apply(lambda x: init_weights(x, mode=init_mode))
 
     def affineLayer(self, inp_shape, out_shape, learn_mean=True):
-        layer = nn.Sequential(
+        return nn.Sequential(
             nn.Linear(inp_shape, out_shape),
             nn.BatchNorm1d(out_shape, affine=learn_mean, track_running_stats=True),
             nn.ReLU(),
         )
-
-        return layer
 
     @typecheck()
     def forward(self, encoder_output):

@@ -178,7 +178,7 @@ def clean_abbreviations(string, version=None):
 
 def clean_punctuations(string, table, punctuation_to_replace):
     for punc, replacement in punctuation_to_replace.items():
-        string = re.sub('\\{}'.format(punc), " {} ".format(replacement), string)
+        string = re.sub(f'\\{punc}', f" {replacement} ", string)
     if table:
         string = string.translate(table)
     return string
@@ -198,19 +198,19 @@ class NumberCleaner:
             return_string = inflect.number_to_words(whole_num)
             return_string += " dollar" if whole_num == 1 else " dollars"
             if decimal:
-                return_string += " and " + inflect.number_to_words(decimal)
+                return_string += f" and {inflect.number_to_words(decimal)}"
                 return_string += " cent" if whole_num == decimal else " cents"
             self.reset()
             return return_string
 
         self.reset()
         if decimal:
-            whole_num += "." + decimal
+            whole_num += f".{decimal}"
             return inflect.number_to_words(whole_num)
         else:
             # Check if there are non-numbers
             def convert_to_word(match):
-                return " " + inflect.number_to_words(match.group(0)) + " "
+                return f" {inflect.number_to_words(match.group(0))} "
 
             return re.sub(r'[0-9,]+', convert_to_word, whole_num)
 
@@ -219,16 +219,13 @@ class NumberCleaner:
         number = match.group(3)
         _proceeding_symbol = match.group(7)
 
-        time_match = TIME_CHECK.match(number)
-        if time_match:
+        if time_match := TIME_CHECK.match(number):
             string = ws + inflect.number_to_words(time_match.group(1)) + "{}{}"
             mins = int(time_match.group(2))
             min_string = ""
             if mins != 0:
-                min_string = " " + inflect.number_to_words(time_match.group(2))
-            ampm_string = ""
-            if time_match.group(3):
-                ampm_string = " " + time_match.group(3)
+                min_string = f" {inflect.number_to_words(time_match.group(2))}"
+            ampm_string = f" {time_match.group(3)}" if time_match.group(3) else ""
             return string.format(min_string, ampm_string)
 
         ord_match = ORD_CHECK.match(number)
@@ -239,20 +236,14 @@ class NumberCleaner:
             # Check if it is a currency
             self.currency = match.group(1) or CURRENCY_CHECK.match(number)
 
-        # Check to see if next symbol is a number
-        # If it is a number and it has 3 digits, then it is probably a
-        # continuation
-        three_match = THREE_CHECK.match(match.group(6))
-        if three_match:
+        if three_match := THREE_CHECK.match(match.group(6)):
             self.curr_num.append(number)
             return " "
-        # Else we can output
         else:
             # Check for decimals
             whole_num = "".join(self.curr_num) + number
             decimal = None
-            decimal_match = DECIMAL_CHECK.search(whole_num)
-            if decimal_match:
+            if decimal_match := DECIMAL_CHECK.search(whole_num):
                 decimal = decimal_match.group(1)[1:]
                 whole_num = whole_num[: -len(decimal) - 1]
             whole_num = re.sub(r'\.', '', whole_num)

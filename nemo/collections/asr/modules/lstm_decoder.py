@@ -84,7 +84,7 @@ class LSTMDecoder(NeuralModule, Exportable):
         bs = 8
         seq = 64
         input_example = torch.randn(bs, self._feat_in, seq).to(next(self.parameters()).device)
-        return tuple([input_example])
+        return (input_example, )
 
     @property
     def vocabulary(self):

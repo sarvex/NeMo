@@ -84,7 +84,7 @@ class ConvFeatureEncoder(nn.Module):
         in_d = 1
         self.conv_layers = nn.ModuleList()
         for i, cl in enumerate(conv_layers):
-            assert len(cl) == 3, "invalid conv definition: " + str(cl)
+            assert len(cl) == 3, f"invalid conv definition: {str(cl)}"
             (dim, k, stride) = cl
 
             self.conv_layers.append(
@@ -188,8 +188,7 @@ class GradMultiply(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, scale):
         ctx.scale = scale
-        res = x.new(x)
-        return res
+        return x.new(x)
 
     @staticmethod
     def backward(ctx, grad):

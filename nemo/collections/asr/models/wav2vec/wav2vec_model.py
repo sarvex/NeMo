@@ -401,9 +401,7 @@ class Wav2VecEncoderModel(ModelPT):
         max_len = max(audio_lengths)
         padding_mask = torch.arange(max_len, device=self.device)
         padding_mask = padding_mask.expand(len(audio_lengths), max_len) < audio_lengths.unsqueeze(1)
-        # Negate to false where no padding
-        padding_mask = ~padding_mask
-        return padding_mask
+        return ~padding_mask
 
     def setup_training_data(self, train_data_config: Optional[Union[DictConfig, Dict]]):
         if 'shuffle' not in train_data_config:
@@ -417,15 +415,15 @@ class Wav2VecEncoderModel(ModelPT):
         # Need to set this because if using an IterableDataset, the length of the dataloader is the total number
         # of samples rather than the number of batches, and this messes up the tqdm progress bar.
         # So we set the number of steps manually (to the correct number) to fix this.
-        if 'is_tarred' in train_data_config and train_data_config['is_tarred']:
-            # We also need to check if limit_train_batches is already set.
-            # If it's an int, we assume that the user has set it to something sane, i.e. <= # training batches,
-            # and don't change it. Otherwise, adjust batches accordingly if it's a float (including 1.0).
-            if isinstance(self._trainer.limit_train_batches, float):
-                self._trainer.limit_train_batches = int(
-                    self._trainer.limit_train_batches
-                    * ceil((len(self._train_dl.dataset) / self.world_size) / train_data_config['batch_size'])
-                )
+        if (
+            'is_tarred' in train_data_config
+            and train_data_config['is_tarred']
+            and isinstance(self._trainer.limit_train_batches, float)
+        ):
+            self._trainer.limit_train_batches = int(
+                self._trainer.limit_train_batches
+                * ceil((len(self._train_dl.dataset) / self.world_size) / train_data_config['batch_size'])
+            )
 
     def setup_validation_data(self, val_data_config: Optional[Union[DictConfig, Dict]]):
         if 'shuffle' not in val_data_config:
@@ -456,7 +454,7 @@ class Wav2VecEncoderModel(ModelPT):
         device = 'gpu' if torch.cuda.is_available() else 'cpu'
         if config.get('use_dali', False):
             device_id = self.local_rank if device == 'gpu' else None
-            dataset = audio_to_text_dataset.get_dali_char_dataset(
+            return audio_to_text_dataset.get_dali_char_dataset(
                 config=config,
                 shuffle=shuffle,
                 device_id=device_id,
@@ -464,8 +462,6 @@ class Wav2VecEncoderModel(ModelPT):
                 world_size=self.world_size,
                 preprocessor_cfg=self._cfg.preprocessor,
             )
-            return dataset
-
         # Instantiate tarred dataset loader or normal dataset loader
         if config.get('is_tarred', False):
             if ('tarred_audio_filepaths' in config and config['tarred_audio_filepaths'] is None) or (
